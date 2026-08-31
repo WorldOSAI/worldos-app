@@ -1,0 +1,142 @@
+{
+  "appPolicies" : {
+    "eula" : "",
+    "policies" : [
+      {
+        "locale" : "en_US",
+        "policyText" : "",
+        "policyURL" : ""
+      }
+    ]
+  },
+  "identifier" : "A37F59D1",
+  "nonRenewingSubscriptions" : [],
+  "products" : [],
+  "settings" : {
+    "_failTransactionsEnabled" : false
+  },
+  "subscriptionGroups" : [
+    {
+      "id" : "C1237A01",
+      "localizations" : [],
+      "name" : "WorldOS Zap Plans",
+      "subscriptions" : [
+        {
+          "adHocOffers" : [],
+          "codeOffers" : [],
+          "displayPrice" : "9.99",
+          "familyShareable" : false,
+          "groupNumber" : 1,
+          "internalID" : "E8912401",
+          "localizations" : [
+            {
+              "description" : "8,000 Zaps each month",
+              "displayName" : "Explorer",
+              "locale" : "en_US"
+            },
+            {
+              "description" : "每月获得 8,000 电量",
+              "displayName" : "探索者",
+              "locale" : "zh_CN"
+            }
+          ],
+          "productID" : "cc.worldos.explorer",
+          "recurringSubscriptionPeriod" : "P1M",
+          "referenceName" : "Explorer Monthly",
+          "subscriptionGroupID" : "C1237A01",
+          "type" : "RecurringSubscription",
+          "winbackOffers" : []
+        },
+        {
+          "adHocOffers" : [],
+          "codeOffers" : [],
+          "displayPrice" : "21.99",
+          "familyShareable" : false,
+          "groupNumber" : 2,
+          "internalID" : "E8912402",
+          "localizations" : [
+            {
+              "description" : "18,000 Zaps each month",
+              "displayName" : "Voyager",
+              "locale" : "en_US"
+            },
+            {
+              "description" : "每月获得 18,000 电量",
+              "displayName" : "远航者",
+              "locale" : "zh_CN"
+            }
+          ],
+          "productID" : "cc.worldos.voyager",
+          "recurringSubscriptionPeriod" : "P1M",
+          "referenceName" : "Voyager Monthly",
+          "subscriptionGroupID" : "C1237A01",
+          "type" : "RecurringSubscription",
+          "winbackOffers" : []
+        },
+        {
+          "adHocOffers" : [],
+          "codeOffers" : [],
+          "displayPrice" : "42.99",
+          "familyShareable" : false,
+          "groupNumber" : 3,
+          "internalID" : "E8912403",
+          "localizations" : [
+            {
+              "description" : "40,000 Zaps each month",
+              "displayName" : "Legend",
+              "locale" : "en_US"
+            },
+            {
+              "description" : "每月获得 40,000 电量",
+              "displayName" : "传奇",
+              "locale" : "zh_CN"
+            }
+          ],
+          "productID" : "cc.worldos.legend",
+          "recurringSubscriptionPeriod" : "P1M",
+          "referenceName" : "Legend Monthly",
+          "subscriptionGroupID" : "C1237A01",
+          "type" : "RecurringSubscription",
+          "winbackOffers" : []
+        }
+      ]
+    },
+    {
+      "id" : "C1237A02",
+      "localizations" : [],
+      "name" : "WorldOS Freedom Pass",
+      "subscriptions" : [
+        {
+          "adHocOffers" : [],
+          "codeOffers" : [],
+          "displayPrice" : "14.99",
+          "familyShareable" : false,
+          "groupNumber" : 1,
+          "internalID" : "E8912404",
+          "localizations" : [
+            {
+              "description" : "Use your own OpenRouter API key",
+              "displayName" : "Freedom Pass",
+              "locale" : "en_US"
+            },
+            {
+              "description" : "使用自己的 OpenRouter API Key",
+              "displayName" : "自备 API",
+              "locale" : "zh_CN"
+            }
+          ],
+          "productID" : "cc.worldos.freedom",
+          "recurringSubscriptionPeriod" : "P1M",
+          "referenceName" : "Freedom Pass Monthly",
+          "subscriptionGroupID" : "C1237A02",
+          "type" : "RecurringSubscription",
+          "winbackOffers" : []
+        }
+      ]
+    }
+  ],
+  "version" : {
+    "major" : 4,
+    "minor" : 0
+  }
+}
