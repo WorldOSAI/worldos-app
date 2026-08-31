@@ -1,0 +1,10 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">WorldOS</string>
+    <string name="title_activity_main">WorldOS</string>
+    <string name="package_name">cc.worldos.app</string>
+    <string name="custom_url_scheme">cc.worldos.app</string>
+    <!-- Google sample App ID. Replace before release; sample ads cannot earn revenue. -->
+    <string name="admob_app_id">ca-app-pub-3940256099942544~3347511713</string>
+    <string name="default_notification_channel_id">worldos-general</string>
+</resources>
