@@ -19,6 +19,11 @@ class NavigationGesturePlugin: CAPPlugin, CAPBridgedPlugin {
 }
 
 class WorldOSBridgeViewController: CAPBridgeViewController {
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        keepWebViewBelowNativeSafeArea()
+    }
+
     override func capacitorDidLoad() {
         super.capacitorDidLoad()
         // Capacitor 8 bridges auto-register package plugins by default. In that
@@ -26,6 +31,28 @@ class WorldOSBridgeViewController: CAPBridgeViewController {
         // so an app-local plugin must be registered as an instance instead.
         bridge?.registerPluginInstance(NavigationGesturePlugin())
         webView?.allowsBackForwardNavigationGestures = false
+    }
+
+    private func keepWebViewBelowNativeSafeArea() {
+        guard let webView else { return }
+
+        let rootView = UIView()
+        rootView.backgroundColor = .systemBackground
+        view = rootView
+
+        webView.removeFromSuperview()
+        webView.translatesAutoresizingMaskIntoConstraints = false
+        rootView.addSubview(webView)
+
+        NSLayoutConstraint.activate([
+            // The native header is exactly the physical top safe area. The
+            // WebView starts below it, so every remote route is protected
+            // without adding a second visible navigation bar.
+            webView.topAnchor.constraint(equalTo: rootView.safeAreaLayoutGuide.topAnchor),
+            webView.leadingAnchor.constraint(equalTo: rootView.leadingAnchor),
+            webView.trailingAnchor.constraint(equalTo: rootView.trailingAnchor),
+            webView.bottomAnchor.constraint(equalTo: rootView.bottomAnchor),
+        ])
     }
 }
 
