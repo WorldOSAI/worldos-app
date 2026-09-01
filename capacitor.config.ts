@@ -25,6 +25,14 @@ const config: CapacitorConfig = {
     allowNavigation: [...new Set([serverHostname, "worldos.cc", "*.worldos.cc"])],
   },
   plugins: {
+    StatusBar: {
+      // The native shell owns the physical status-bar inset. Web pages may or
+      // may not render their own header, so the WebView must never rely on a
+      // page-level header to stay clear of the system status bar.
+      overlaysWebView: false,
+      backgroundColor: "#ffffff",
+      style: "DEFAULT",
+    },
     SplashScreen: {
       // Keep the native launch screen over the WebView until the first React
       // frame is ready. The runtime hides it earlier; this is the fail-safe so
