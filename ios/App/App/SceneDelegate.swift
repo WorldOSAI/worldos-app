@@ -21,7 +21,10 @@ class NavigationGesturePlugin: CAPPlugin, CAPBridgedPlugin {
 class WorldOSBridgeViewController: CAPBridgeViewController {
     override func capacitorDidLoad() {
         super.capacitorDidLoad()
-        bridge?.registerPluginType(NavigationGesturePlugin.self)
+        // Capacitor 8 bridges auto-register package plugins by default. In that
+        // mode registerPluginType(_:) intentionally returns without doing anything,
+        // so an app-local plugin must be registered as an instance instead.
+        bridge?.registerPluginInstance(NavigationGesturePlugin())
         webView?.allowsBackForwardNavigationGestures = false
     }
 }
