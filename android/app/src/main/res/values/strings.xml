@@ -4,7 +4,7 @@
     <string name="title_activity_main">WorldOS</string>
     <string name="package_name">cc.worldos.app</string>
     <string name="custom_url_scheme">cc.worldos.app</string>
-    <!-- Google sample App ID. Replace before release; sample ads cannot earn revenue. -->
-    <string name="admob_app_id">ca-app-pub-3940256099942544~3347511713</string>
+    <!-- Production AdMob App ID. -->
+    <string name="admob_app_id">ca-app-pub-5398270585356523~9768045896</string>
     <string name="default_notification_channel_id">worldos-general</string>
 </resources>

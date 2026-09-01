@@ -28,8 +28,8 @@
 		</dict>
 	</array>
 	<key>GADApplicationIdentifier</key>
-	<!-- Google sample App ID. Replace before release; sample ads cannot earn revenue. -->
-	<string>ca-app-pub-3940256099942544~1458002511</string>
+	<!-- Production AdMob App ID. -->
+	<string>ca-app-pub-5398270585356523~4487799051</string>
 	<key>GADIsAdManagerApp</key>
 	<true/>
 	<key>NSUserTrackingUsageDescription</key>
