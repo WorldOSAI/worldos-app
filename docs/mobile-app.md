@@ -36,16 +36,15 @@ and Android signing certificate fingerprint.
 ## Advertising
 
 `RewardedAdCard` automatically uses native AdMob inside the app and Google Publisher
-Tag on the web. The native projects intentionally contain Google's sample AdMob App
-IDs, and the JS bridge falls back to Google's sample rewarded unit IDs. Replace the
-App IDs in:
+Tag on the web. The native projects contain the production AdMob App IDs in:
 
 - `android/app/src/main/res/values/strings.xml`
 - `ios/App/App/Info.plist`
 
-Set `NEXT_PUBLIC_ADMOB_IOS_REWARDED_ID` and
-`NEXT_PUBLIC_ADMOB_ANDROID_REWARDED_ID`, then set
-`NEXT_PUBLIC_ADMOB_TEST_MODE=0` only for a signed release build.
+The JS bridge still falls back to Google's sample rewarded unit IDs when no production
+unit is configured. Keep the rewarded-ad entry disabled until
+`NEXT_PUBLIC_ADMOB_IOS_REWARDED_ID` and `NEXT_PUBLIC_ADMOB_ANDROID_REWARDED_ID` point
+to production units, then set `NEXT_PUBLIC_ADMOB_TEST_MODE=0` for signed release builds.
 
 The bridge attaches the WorldOS reward session as AdMob SSV custom data. The current
 first-build fallback still claims through the authenticated WorldOS reward endpoint
@@ -129,7 +128,7 @@ trusted to grant currency.
 
 ## Release checklist
 
-1. Replace sample AdMob App IDs and configure production rewarded units.
+1. Verify the production AdMob App IDs and configure production rewarded units.
 2. Add AdMob SSV verification before enabling real Zap rewards.
 3. Configure APNs, FCM, OneSignal, and notification delivery from the backend.
 4. Configure AppsFlyer + TikTok and all required SKAdNetwork identifiers.
