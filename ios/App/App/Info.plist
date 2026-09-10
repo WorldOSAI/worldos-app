@@ -33,7 +33,7 @@
 	<key>GADIsAdManagerApp</key>
 	<true/>
 	<key>NSUserTrackingUsageDescription</key>
-	<string>Your permission helps us measure advertising performance and keep WorldOS sustainable.</string>
+	<string>With your permission, we use identifiers to link your activity with data from other companies’ apps and websites to measure our advertising.</string>
 	<key>SKAdNetworkItems</key>
 	<array>
 		<dict>
