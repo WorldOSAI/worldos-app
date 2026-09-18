@@ -25,6 +25,11 @@ const config: CapacitorConfig = {
     allowNavigation: [...new Set([serverHostname, "worldos.cc", "*.worldos.cc"])],
   },
   plugins: {
+    SystemBars: {
+      // The native shell applies physical insets to the WebView container.
+      // Disable Capacitor's competing parent-view listener and CSS injection.
+      insetsHandling: "disable",
+    },
     StatusBar: {
       // The native shell owns the physical status-bar inset. Web pages may or
       // may not render their own header, so the WebView must never rely on a

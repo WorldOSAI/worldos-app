@@ -10,6 +10,7 @@
 *.p12
 *.mobileprovision
 /android/app/google-services.json
+/android/keystore.properties
 /ios/App/GoogleService-Info.plist
 
 # Local release artifacts
