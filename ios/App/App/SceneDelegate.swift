@@ -97,19 +97,90 @@ class TrackingAuthorizationPlugin: CAPPlugin, CAPBridgedPlugin {
 }
 
 @objc(NavigationGesturePlugin)
-class NavigationGesturePlugin: CAPPlugin, CAPBridgedPlugin {
+class NavigationGesturePlugin: CAPPlugin, CAPBridgedPlugin, UIGestureRecognizerDelegate {
     let identifier = "NavigationGesturePlugin"
     let jsName = "NavigationGesture"
     let pluginMethods: [CAPPluginMethod] = [
         CAPPluginMethod(name: "setEnabled", returnType: CAPPluginReturnPromise)
     ]
 
+    private var sheetPan: UIScreenEdgePanGestureRecognizer?
+    private var sheetGestureActive = false
+    private var inactiveObserver: NSObjectProtocol?
+
+    override func load() {
+        DispatchQueue.main.async { [weak self] in
+            guard let self, let webView = self.bridge?.webView else { return }
+            let pan = UIScreenEdgePanGestureRecognizer(target: self, action: #selector(self.handleSheetPan(_:)))
+            pan.edges = .left
+            pan.delegate = self
+            pan.isEnabled = false
+            webView.addGestureRecognizer(pan)
+            // An edge dismissal wins over the WebView's ordinary scrolling gesture.
+            webView.scrollView.panGestureRecognizer.require(toFail: pan)
+            self.sheetPan = pan
+            self.inactiveObserver = NotificationCenter.default.addObserver(
+                forName: UIApplication.willResignActiveNotification, object: nil, queue: .main
+            ) { [weak self] _ in
+                guard let pan = self?.sheetPan else { return }
+                let enabled = pan.isEnabled
+                pan.isEnabled = false // sends cancelled if the finger was still down
+                pan.isEnabled = enabled
+            }
+        }
+    }
+
+    deinit {
+        if let inactiveObserver { NotificationCenter.default.removeObserver(inactiveObserver) }
+    }
+
+    // Additive option: existing Web clients keep their normal page-navigation behavior.
+    // New clients pass enabled:false, sheet:true so older Apps safely disable the page
+    // snapshot animation instead of accidentally navigating underneath a sheet.
     @objc func setEnabled(_ call: CAPPluginCall) {
         let enabled = call.getBool("enabled") ?? false
+        let sheet = call.getBool("sheet") ?? false
         DispatchQueue.main.async { [weak self] in
-            self?.bridge?.webView?.allowsBackForwardNavigationGestures = enabled
+            guard let self, let webView = self.bridge?.webView else {
+                call.reject("Navigation WebView is unavailable", "WEBVIEW_UNAVAILABLE")
+                return
+            }
+            webView.allowsBackForwardNavigationGestures = enabled && !sheet
+            self.sheetPan?.isEnabled = sheet
             call.resolve()
         }
+    }
+
+    func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
+        guard let pan = gestureRecognizer as? UIScreenEdgePanGestureRecognizer,
+              let view = pan.view else { return false }
+        let velocity = pan.velocity(in: view)
+        return velocity.x > 0 && abs(velocity.x) > abs(velocity.y)
+    }
+
+    @objc private func handleSheetPan(_ pan: UIScreenEdgePanGestureRecognizer) {
+        guard let view = pan.view else { return }
+        let phase: String
+        switch pan.state {
+        case .began:
+            sheetGestureActive = true
+            phase = "began"
+        case .changed:
+            guard sheetGestureActive else { return }
+            phase = "changed"
+        case .ended, .cancelled, .failed:
+            guard sheetGestureActive else { return }
+            sheetGestureActive = false
+            phase = pan.state == .ended ? "ended" : "cancelled"
+        default: return
+        }
+        let width = max(1, view.bounds.width)
+        notifyListeners("sheetGesture", data: [
+            "phase": phase,
+            "progress": min(1, max(0, pan.translation(in: view).x / width)),
+            "velocity": pan.velocity(in: view).x / width
+        ])
+        // JS owns animation completion and its single history.back(); never goBack here.
     }
 }
 
