@@ -14,7 +14,7 @@ screen-edge pan emits `sheetGesture` events with:
 - `velocity`: horizontal velocity in WebView widths per second.
 
 The Web `RouteSheet` maps progress onto its remaining vertical travel. It owns
-commit/cancel thresholds, the closing animation and exactly one history pop.
+commit/cancel thresholds, the closing animation and the existing sheet-close navigation.
 Native must not call `goBack()` or manipulate Web DOM. Disabling the gesture or
 backgrounding the App cancels an in-progress pan.
 
@@ -32,7 +32,7 @@ pointed at the matching Web branch, check both world and character detail sheets
    listing stays fixed. Complete: return to the listing at its previous scroll.
 2. Release before 30%: return to the starting sheet position; history is unchanged.
 3. Quick outward flick commits; deliberate reversal cancels. Repeat rapidly: one
-   history entry is consumed per dismissal.
+   sheet-close action is invoked per dismissal (including its existing internal-history exit).
 4. Repeat with a fully expanded/scrolled sheet. Edge dismissal still works while
    ordinary vertical content scrolling and pull-down dismissal keep working.
 5. Put a confirmation dialog over the sheet: neither the sheet nor page navigates.

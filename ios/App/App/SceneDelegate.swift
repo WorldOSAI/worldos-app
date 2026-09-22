@@ -180,7 +180,7 @@ class NavigationGesturePlugin: CAPPlugin, CAPBridgedPlugin, UIGestureRecognizerD
             "progress": min(1, max(0, pan.translation(in: view).x / width)),
             "velocity": pan.velocity(in: view).x / width
         ])
-        // JS owns animation completion and its single history.back(); never goBack here.
+        // JS owns animation completion and sheet-close navigation; never goBack here.
     }
 }
 
