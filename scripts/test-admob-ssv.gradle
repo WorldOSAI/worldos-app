@@ -1,0 +1,9 @@
+// Exercise the patched plugin with its existing JUnit/Mockito dependencies.
+// Keep test sources in this repository so npm ci cannot discard the regression.
+gradle.beforeProject { project ->
+    if (project.path == ':capacitor-community-admob') {
+        project.afterEvaluate {
+            project.android.sourceSets.test.java.srcDir(new File(project.rootDir, '../tests/android'))
+        }
+    }
+}

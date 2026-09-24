@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 const root = new URL('../node_modules/@capacitor-community/admob/', import.meta.url);
-const paths = ['ios/Sources/AdMobPlugin/Rewarded/AdRewardExecutor.swift','ios/Sources/AdMobPlugin/RewardedInterstitial/AdRewardInterstitialExecutor.swift','ios/Sources/AdMobPlugin/AdMobPlugin.swift','android/src/main/java/com/getcapacitor/community/admob/AdMob.java'];
+const paths = ['ios/Sources/AdMobPlugin/Rewarded/AdRewardExecutor.swift','ios/Sources/AdMobPlugin/RewardedInterstitial/AdRewardInterstitialExecutor.swift','ios/Sources/AdMobPlugin/AdMobPlugin.swift','android/src/main/java/com/getcapacitor/community/admob/AdMob.java','android/src/main/java/com/getcapacitor/community/admob/rewardedinterstitial/RewardedInterstitialAdCallbackAndListeners.kt'];
 const before = paths.map(p => readFileSync(new URL(p,root),'utf8'));
 execFileSync(process.execPath,[new URL('./patch-admob-revenue.mjs',import.meta.url).pathname]);
 assert.deepEqual(paths.map(p => readFileSync(new URL(p,root),'utf8')),before,'patch must be idempotent after npm ci');

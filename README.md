@@ -29,3 +29,28 @@ npm run mobile:sync:release
 ```
 
 That command rejects any release origin other than `https://worldos.cc`.
+
+## AdMob compatibility patches
+
+`npm ci` applies the version-pinned, idempotent patch in
+`scripts/patch-admob-revenue.mjs`. In addition to revenue reporting, it fixes
+AdMob 8.1.0 on Android to attach rewarded-interstitial SSV user ID and custom data
+before the prepared ad is exposed. Ordinary rewarded ads and iOS SSV are unchanged.
+Reward grants remain authoritative only after WorldSims verifies Google's callback.
+
+Verify patch reapplication and execute the real Android load callback with SDK mocks
+(JDK 21 and the Android SDK are required):
+
+```bash
+node scripts/test-admob-revenue.mjs
+cd android
+./gradlew --no-daemon -Pkotlin.compiler.execution.strategy=in-process \
+  -I ../scripts/test-admob-ssv.gradle \
+  :capacitor-community-admob:testDebugUnitTest \
+  --tests cc.worldos.app.RewardedInterstitialSsvTest :app:assembleDebug
+```
+
+This native fix requires a newly built Android App. Keep the existing Web fallback
+for installed older versions; approval of a new release alone does not update them.
+Before restoring interstitial refill, validate a real-device callback containing
+both identifiers, the verified Zap grant, and continuation of the saved action.
