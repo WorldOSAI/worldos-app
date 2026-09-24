@@ -1,5 +1,6 @@
 import UIKit
 import Capacitor
+import WebKit
 import AppTrackingTransparency
 
 @objc(TrackingAuthorizationPlugin)
@@ -113,8 +114,40 @@ class NavigationGesturePlugin: CAPPlugin, CAPBridgedPlugin {
     }
 }
 
+/// Capacitor loads `server.errorPath` (offline.html) on EVERY failed provisional navigation,
+/// including NSURLErrorCancelled (-999): a full-page load superseded by the next one, e.g. a
+/// link tapped while a redirect was still in flight. That is not "offline" — the WebView is
+/// already loading the newer page — so that one error is dropped here. Everything else the
+/// delegate does is forwarded to Capacitor's own handler untouched.
+final class CancelledNavigationFilter: NSObject, WKNavigationDelegate {
+    private weak var target: (NSObject & WKNavigationDelegate)?
+
+    init(forwardingTo target: NSObject & WKNavigationDelegate) {
+        self.target = target
+    }
+
+    override func responds(to aSelector: Selector!) -> Bool {
+        super.responds(to: aSelector) || (target?.responds(to: aSelector) ?? false)
+    }
+
+    override func forwardingTarget(for aSelector: Selector!) -> Any? {
+        target
+    }
+
+    // swiftlint:disable:next implicitly_unwrapped_optional
+    func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
+        if (error as NSError).code == NSURLErrorCancelled {
+            CAPLog.print("⚡️  WebView navigation cancelled by a newer one (-999); not offline")
+            return
+        }
+        target?.webView?(webView, didFailProvisionalNavigation: navigation, withError: error)
+    }
+}
+
 class WorldOSBridgeViewController: CAPBridgeViewController {
     private let trackingAuthorization = TrackingAuthorizationPlugin()
+    // navigationDelegate is weak: keep the filter alive for the WebView's lifetime
+    private var navigationFilter: CancelledNavigationFilter?
 
     override func capacitorDidLoad() {
         super.capacitorDidLoad()
@@ -124,6 +157,11 @@ class WorldOSBridgeViewController: CAPBridgeViewController {
         bridge?.registerPluginInstance(NavigationGesturePlugin())
         bridge?.registerPluginInstance(trackingAuthorization)
         webView?.allowsBackForwardNavigationGestures = false
+        if let webView, let handler = webView.navigationDelegate as? (NSObject & WKNavigationDelegate) {
+            let filter = CancelledNavigationFilter(forwardingTo: handler)
+            navigationFilter = filter
+            webView.navigationDelegate = filter
+        }
     }
 
     override func viewDidAppear(_ animated: Bool) {
