@@ -7,7 +7,8 @@
     "mobile:sync:release": "CAPACITOR_BUILD_MODE=release CAPACITOR_SERVER_URL=https://worldos.cc cap sync",
     "mobile:doctor": "cap doctor",
     "mobile:android": "cap open android",
-    "mobile:ios": "cap open ios"
+    "mobile:ios": "cap open ios",
+    "mobile:splash": "node scripts/generate-mobile-splash.mjs"
   },
   "dependencies": {
     "@capacitor-community/admob": "8.1.0",
@@ -28,6 +29,7 @@
   },
   "devDependencies": {
     "@capacitor/cli": "8.5.0",
+    "sharp": "0.34.5",
     "typescript": "5.9.2"
   }
 }

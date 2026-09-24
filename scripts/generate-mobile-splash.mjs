@@ -1,7 +1,14 @@
 import sharp from "sharp";
+import { mkdir } from "node:fs/promises";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 
-const SOURCE = "public/logo-icon.png";
+const ROOT = fileURLToPath(new URL("../", import.meta.url));
+const ICON = resolve(ROOT, "assets/branding/logo-icon.png");
+const WORDMARK = resolve(ROOT, "assets/branding/logo-wordmark.png");
 const LOGO_FRACTION = 0.3;
+const WORDMARK_FRACTION = 0.42;
+const GAP_FRACTION = 0.055;
 
 const targets = [
   ...["", "-1", "-2"].map((suffix) => [
@@ -22,20 +29,46 @@ const targets = [
   ["android/app/src/main/res/drawable-port-xxxhdpi/splash.png", 1280, 1920],
 ];
 
-for (const [output, width, height] of targets) {
-  const logoSize = Math.round(Math.min(width, height) * LOGO_FRACTION);
-  const logo = await sharp(SOURCE).resize(logoSize, logoSize).png().toBuffer();
+async function renderSplash(output, width, height, transparent = false) {
+  const shortSide = Math.min(width, height);
+  const logoSize = Math.round(shortSide * LOGO_FRACTION);
+  const gap = Math.round(shortSide * GAP_FRACTION);
+  const logo = await sharp(ICON).resize(logoSize, logoSize).png().toBuffer();
+  const wordmark = await sharp(WORDMARK)
+    .resize({ width: Math.round(shortSide * WORDMARK_FRACTION) })
+    .png()
+    .toBuffer({ resolveWithObject: true });
+  const top = Math.round((height - logoSize - gap - wordmark.info.height) / 2);
+  const destination = resolve(ROOT, output);
+  await mkdir(dirname(destination), { recursive: true });
 
   await sharp({
-    create: { width, height, channels: 3, background: "#ffffff" },
+    create: {
+      width,
+      height,
+      channels: 4,
+      background: transparent ? "#ffffff00" : "#ffffff",
+    },
   })
     .composite([{
       input: logo,
       left: Math.round((width - logoSize) / 2),
-      top: Math.round((height - logoSize) / 2),
+      top,
+    }, {
+      input: wordmark.data,
+      left: Math.round((width - wordmark.info.width) / 2),
+      top: top + logoSize + gap,
     }])
     .png()
-    .toFile(output);
+    .toFile(destination);
 }
 
-console.log(`Generated ${targets.length} splash assets with a ${LOGO_FRACTION * 100}% logo.`);
+for (const [output, width, height] of targets) {
+  await renderSplash(output, width, height);
+}
+
+// Android's system launch screen uses a separate 288 dp icon canvas. At xxxhdpi
+// this is 1152 px; the complete lockup fits inside the central 192 dp safe circle.
+await renderSplash("android/app/src/main/res/drawable-xxxhdpi/splash_brand.png", 1152, 1152, true);
+
+console.log(`Generated ${targets.length + 1} splash assets with the stacked WorldOS brand.`);
