@@ -43,6 +43,16 @@
                 <data android:scheme="worldos" />
             </intent-filter>
 
+            <!-- Keep the OneLink host in its own filter: its association is served
+                 by AppsFlyer, independently of worldos.cc. Short paths are resolved
+                 by the SDK, never loaded as WebView routes. -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" android:host="go.worldos.cc" />
+            </intent-filter>
+
         </activity>
 
         <provider

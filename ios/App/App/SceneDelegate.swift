@@ -189,9 +189,11 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 
         window = UIWindow(windowScene: windowScene)
         window?.rootViewController = WorldOSBridgeViewController()
-        window?.makeKeyAndVisible()
-
+        // Register Capacitor's cold-start replay before presenting the controller.
+        // The proxy waits for plugin registration before forwarding launch URLs to
+        // App.getLaunchUrl/appUrlOpen and the AppsFlyer attribution cache.
         SceneDelegateProxy.shared.scene(scene, willConnectTo: session, options: connectionOptions)
+        window?.makeKeyAndVisible()
     }
 
     func scene(_ scene: UIScene, openURLContexts URLContexts: Set<UIOpenURLContext>) {
