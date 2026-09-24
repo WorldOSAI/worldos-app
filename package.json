@@ -7,7 +7,8 @@
     "mobile:sync:release": "CAPACITOR_BUILD_MODE=release CAPACITOR_SERVER_URL=https://worldos.cc cap sync",
     "mobile:doctor": "cap doctor",
     "mobile:android": "cap open android",
-    "mobile:ios": "cap open ios"
+    "mobile:ios": "cap open ios",
+    "postinstall": "node scripts/patch-admob-revenue.mjs"
   },
   "dependencies": {
     "@capacitor-community/admob": "8.1.0",
