@@ -30,6 +30,23 @@ npm run mobile:sync:release
 
 That command rejects any release origin other than `https://worldos.cc`.
 
+## Splash screen branding
+
+Native-owned source images live in `assets/branding/`: the WorldOS icon and the
+original website wordmark, preserving its lettering and colors. The launch screen
+centers the icon above the wordmark on white. Replace these PNGs and run:
+
+```bash
+npm run mobile:splash
+```
+
+The generator updates iOS `Splash.imageset`, Android fallback splash images, and
+the transparent Android system launch icon. Its layout constants control icon
+size, wordmark width, and spacing. Keep the system icon's complete artwork inside
+the central 192 dp circle of its 288 dp canvas to avoid Android masking.
+Commit the source images and generated native resources, then rebuild the App;
+Web deployments do not update installed launch screens.
+
 ## AdMob compatibility patches
 
 `npm ci` applies the version-pinned, idempotent patch in

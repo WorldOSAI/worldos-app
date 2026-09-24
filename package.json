@@ -8,6 +8,7 @@
     "mobile:doctor": "cap doctor",
     "mobile:android": "cap open android",
     "mobile:ios": "cap open ios",
+    "mobile:splash": "node scripts/generate-mobile-splash.mjs",
     "postinstall": "node scripts/patch-admob-revenue.mjs"
   },
   "dependencies": {
@@ -29,6 +30,7 @@
   },
   "devDependencies": {
     "@capacitor/cli": "8.5.0",
+    "sharp": "0.34.5",
     "typescript": "5.9.2"
   }
 }
