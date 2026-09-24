@@ -140,6 +140,19 @@ final class CancelledNavigationFilter: NSObject, WKNavigationDelegate {
         }
         target?.webView?(webView, didFailProvisionalNavigation: navigation, withError: error)
     }
+
+    // The same cancellation can hit a page that has already COMMITTED but is still streaming
+    // its document (Next.js streams HTML): a newer navigation stops that loader with -999 and
+    // Capacitor's committed-load handler would load offline.html — cancelling the healthy
+    // newer navigation in the process.
+    // swiftlint:disable:next implicitly_unwrapped_optional
+    func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
+        if (error as NSError).code == NSURLErrorCancelled {
+            CAPLog.print("⚡️  WebView committed load cancelled by a newer navigation (-999); not offline")
+            return
+        }
+        target?.webView?(webView, didFail: navigation, withError: error)
+    }
 }
 
 class WorldOSBridgeViewController: CAPBridgeViewController {
