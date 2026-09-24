@@ -14,7 +14,6 @@ class TrackingAuthorizationPlugin: CAPPlugin, CAPBridgedPlugin {
 
     private var activationObserver: NSObjectProtocol?
     private var webViewPresented = false
-    private var launchRequestAttempted = false
     private var requesting = false
     private var pendingCalls: [CAPPluginCall] = []
 
@@ -48,12 +47,12 @@ class TrackingAuthorizationPlugin: CAPPlugin, CAPBridgedPlugin {
     }
 
     // Called after the WebView is presented and whenever Settings returns focus.
+    // No prompt here: the Web raises the system prompt itself (requestAuthorization),
+    // after its own explainer and only once the visitor is signed in — asking cold on
+    // the first screen was the lowest-yield moment, and Apple only lets us ask once.
     func onActive() {
         guard webViewPresented, UIApplication.shared.applicationState == .active else { return }
         notifyListeners("statusChanged", data: statusPayload())
-        guard !launchRequestAttempted else { return }
-        launchRequestAttempted = true
-        requestIfNeeded()
     }
 
     @objc func getStatus(_ call: CAPPluginCall) {
@@ -75,7 +74,6 @@ class TrackingAuthorizationPlugin: CAPPlugin, CAPBridgedPlugin {
                 return
             }
             self.pendingCalls.append(call)
-            self.launchRequestAttempted = true
             self.requestIfNeeded()
         }
     }
