@@ -11,6 +11,9 @@ Read [REPOSITORY_CONTRACT.md](./REPOSITORY_CONTRACT.md) before adding files or
 changing a plugin. The Web-side architecture and compatibility policy live in
 `WorldOSAI/WorldSims/docs/worldos-app-architecture.md`.
 
+OneLink domain, routing parameters and post-release activation steps:
+[OneLink release contract](./docs/onelink-release.md).
+
 ## Local verification
 
 ```bash
