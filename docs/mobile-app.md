@@ -46,11 +46,12 @@ unit is configured. Keep the rewarded-ad entry disabled until
 `NEXT_PUBLIC_ADMOB_IOS_REWARDED_ID` and `NEXT_PUBLIC_ADMOB_ANDROID_REWARDED_ID` point
 to production units, then set `NEXT_PUBLIC_ADMOB_TEST_MODE=0` for signed release builds.
 
-The bridge attaches the WorldOS reward session as AdMob SSV custom data. The current
-first-build fallback still claims through the authenticated WorldOS reward endpoint
-after the native SDK returns a reward. Production rollout must add an AdMob
-server-side-verification callback and make that callback authoritative before enabling
-valuable rewards for all users.
+The Web-owned bridge passes the signed-in user ID and server-created reward session
+as AdMob SSV user ID and custom data. WorldSims verifies Google's signed callback
+before granting Zaps; SDK completion alone is not reward authority. The Android
+AdMob 8.1.0 interstitial loader requires our postinstall patch to attach these
+fields, matching its existing ordinary rewarded loader. See the README's AdMob
+compatibility checks and release validation steps.
 
 ## Push notifications
 
@@ -129,7 +130,7 @@ trusted to grant currency.
 ## Release checklist
 
 1. Verify the production AdMob App IDs and configure production rewarded units.
-2. Add AdMob SSV verification before enabling real Zap rewards.
+2. Verify real-device AdMob SSV attribution and Zap grants before enabling a new ad format.
 3. Configure APNs, FCM, OneSignal, and notification delivery from the backend.
 4. Configure AppsFlyer + TikTok and all required SKAdNetwork identifiers.
 5. Create Apple/Google products and enable the verified RevenueCat webhook.

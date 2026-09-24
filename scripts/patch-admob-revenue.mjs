@@ -2,7 +2,7 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 const root = new URL('../node_modules/@capacitor-community/admob/', import.meta.url);
 const version = JSON.parse(readFileSync(new URL('package.json', root), 'utf8')).version;
-if (version !== '8.1.0') throw new Error(`Review AdMob revenue patch for ${version}`);
+if (version !== '8.1.0') throw new Error(`Review AdMob native patches for ${version}`);
 function patch(path, before, after) {
   const file = fileURLToPath(new URL(path, root));
   const source = readFileSync(file, 'utf8');
@@ -25,4 +25,20 @@ patch('ios/Sources/AdMobPlugin/AdMobPlugin.swift',
 patch('android/src/main/java/com/getcapacitor/community/admob/AdMob.java',
   'public class AdMob extends Plugin {',
   'public class AdMob extends Plugin {\n    @PluginMethod\n    public void getRewardedRevenueVersion(PluginCall call) {\n        JSObject result = new JSObject();\n        result.put("version", 1);\n        call.resolve(result);\n    }');
-console.log('AdMob 8.1.0: rewarded revenue micros and version probe patched');
+// Android 8.1.0 parses ssv options for interstitials but never attaches them to
+// the loaded ad. Mirror ordinary rewarded ads before publishing the prepared ad.
+const interstitialCallback = 'android/src/main/java/com/getcapacitor/community/admob/rewardedinterstitial/RewardedInterstitialAdCallbackAndListeners.kt';
+patch(interstitialCallback,
+  'import com.google.android.gms.ads.rewarded.RewardItem',
+  'import com.google.android.gms.ads.rewarded.RewardItem\nimport com.google.android.gms.ads.rewarded.ServerSideVerificationOptions');
+patch(interstitialCallback,
+  '                AdRewardInterstitialExecutor.preparedAds[ad.adUnitId] = ad',
+  `                if (adOptions.ssvInfo.hasInfo) {
+                    val ssvOptions = ServerSideVerificationOptions.Builder()
+                    adOptions.ssvInfo.customData?.let { ssvOptions.setCustomData(it) }
+                    adOptions.ssvInfo.userId?.let { ssvOptions.setUserId(it) }
+                    ad.setServerSideVerificationOptions(ssvOptions.build())
+                }
+
+                AdRewardInterstitialExecutor.preparedAds[ad.adUnitId] = ad`);
+console.log('AdMob 8.1.0: revenue micros, version probe and Android interstitial SSV patched');
