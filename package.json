@@ -8,7 +8,8 @@
     "mobile:doctor": "cap doctor",
     "mobile:android": "cap open android",
     "mobile:ios": "cap open ios",
-    "mobile:splash": "node scripts/generate-mobile-splash.mjs"
+    "mobile:splash": "node scripts/generate-mobile-splash.mjs",
+    "postinstall": "node scripts/patch-admob-revenue.mjs"
   },
   "dependencies": {
     "@capacitor-community/admob": "8.1.0",
