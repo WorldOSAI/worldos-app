@@ -24,6 +24,9 @@ const backgroundColor = () => (nativeTheme.shouldUseDarkColors ? "#0d0d0d" : "#f
 
 /** @type {BrowserWindow | null} */
 let mainWindow = null;
+/** Live AI image host rendered straight into pages (see configureSession). */
+const POLLINATIONS_ORIGIN = "https://image.pollinations.ai";
+
 /** A deep link that arrived before the window existed (macOS open-url fires early). */
 let pendingUrl = /** @type {string | null} */ (null);
 
@@ -299,6 +302,25 @@ function configureSession() {
     callback(isAppUrl(details.requestingUrl) && allowed.has(permission) && audioOnly);
   });
   ses.setPermissionCheckHandler((_contents, permission, requestingOrigin) => isAppUrl(requestingOrigin) && allowed.has(permission));
+
+  // The Steam game stays SFW. Some in-world pictures (social posts, dating photos, avatars)
+  // are rendered live by image.pollinations.ai straight into the page from model-written
+  // prompts, with no server of ours in the path — so the shell turns on Pollinations'
+  // strict NSFW filter for every such request (safe=true: an image it flags fails to load
+  // instead of rendering). Covers every panel, including URLs already stored in saves.
+  ses.webRequest.onBeforeRequest({ urls: [`${POLLINATIONS_ORIGIN}/*`] }, (details, callback) => {
+    try {
+      const url = new URL(details.url);
+      if (url.origin === POLLINATIONS_ORIGIN && url.searchParams.get("safe") !== "true") {
+        url.searchParams.set("safe", "true");
+        callback({ redirectURL: url.toString() });
+        return;
+      }
+    } catch {
+      /* unparsable: let it through unchanged */
+    }
+    callback({});
+  });
 }
 
 // ─── Deep links (OAuth hand-back) ───────────────────────────────────────────
@@ -319,6 +341,12 @@ function protocolUrlFromArgv(argv) {
 
 /** @param {string} raw */
 function openDeepLink(raw) {
+  // worldos-desktop://focus — Steam's web checkout sends the player's browser back here:
+  // just bring the game to the front (the store is already waiting for the order)
+  if (/^worldos-desktop:\/\/focus\/?$/i.test(raw)) {
+    focusMainWindow();
+    return;
+  }
   const target = deepLinkTarget(raw);
   if (!target) return;
   if (!mainWindow || mainWindow.isDestroyed()) {
