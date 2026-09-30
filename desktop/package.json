@@ -81,7 +81,8 @@
       "files": [
         "!node_modules/steamworks.js/dist/win64/**",
         "!node_modules/steamworks.js/dist/linux64/**"
-      ]
+      ],
+      "x64ArchFiles": "Contents/Resources/app.asar.unpacked/node_modules/steamworks.js/dist/osx/*"
     }
   }
 }

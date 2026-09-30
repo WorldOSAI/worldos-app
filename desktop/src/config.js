@@ -6,11 +6,11 @@
 // override, and scripts/check-release.js refuses to package if this constant changes.
 const PRODUCTION_ORIGIN = "https://worldos.cc";
 
-// Steamworks App ID — null until the Steamworks app exists. `npm run steam:upload`
-// refuses to ship without it. Dev runs can set WORLDOS_STEAM_APP_ID=480 (Valve's public
-// "Spacewar" test app, owned by every Steam account).
+// Steamworks App ID of "WorldOS" (partner Entropia Inc.). Dev runs can override it with
+// WORLDOS_STEAM_APP_ID=480 (Valve's public "Spacewar" test app, owned by every Steam
+// account) — 5363600 only runs for accounts that own it (unreleased: the publisher's).
 /** @type {number | null} */
-const STEAM_APP_ID = null;
+const STEAM_APP_ID = 5363600;
 
 // URL scheme the system browser uses to hand an OAuth code back to this app
 // (https://worldos.cc/auth/desktop → worldos-desktop://auth/callback?code=…).
