@@ -34,6 +34,8 @@
 	<true/>
 	<key>NSUserTrackingUsageDescription</key>
 	<string>With your permission, we use identifiers to link your activity with data from other companies’ apps and websites to measure our advertising.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>WorldOS uses your camera to take photos you choose to upload, such as your profile picture.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>WorldOS may use your approximate location to provide more relevant advertising.</string>
 	<key>SKAdNetworkItems</key>
