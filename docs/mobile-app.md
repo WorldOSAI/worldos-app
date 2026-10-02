@@ -56,7 +56,7 @@ compatibility checks and release validation steps.
 ## Push notifications
 
 Set `NEXT_PUBLIC_ONESIGNAL_APP_ID` to enable OneSignal. The bridge logs in to OneSignal
-with the authenticated Supabase user UUID and exposes an explicit permission button in
+with a server-issued opaque push identity and exposes an explicit permission button in
 Account → Preferences. Notification payloads may include an `additionalData.url` value
 under `worldos://`, `https://worldos.cc`, or a WorldOS subdomain; other targets are
 ignored by the in-app navigator.
@@ -70,6 +70,21 @@ The existing `notifications` database remains the in-product inbox. Connecting e
 notification-row insert to OneSignal delivery is a separate server/database rollout;
 it requires the repository-mandated Supabase workflow and is not performed by the
 native client.
+
+### Direct FCM release
+
+Android 1.2/build 6 is the first direct-FCM release. Use Firebase project
+`worldos-3fb07` with Android package `cc.worldos.app`; keep `google-services.json`
+and signing files local and ignored. Release Gradle tasks require both files and
+a generated Capacitor server URL of exactly `https://worldos.cc`.
+
+Build after `CAPACITOR_BUILD_MODE=release CAPACITOR_SERVER_URL=https://worldos.cc
+npx cap sync android`, then run `./gradlew :app:assembleRelease :app:bundleRelease`
+from `android/`. Publish the signed APK through the website and the AAB through
+Google Play. WorldSims sets `NEXT_PUBLIC_DIRECT_PUSH_ANDROID_MIN_BUILD=6` and
+the matching server-only `FCM_SERVICE_ACCOUNT_JSON`. Older builds retain OneSignal;
+the SDK stays during the transition. Direct push registration, delivery, and
+per-token OneSignal fallback are owned by WorldSims.
 
 ## TikTok attribution
 
