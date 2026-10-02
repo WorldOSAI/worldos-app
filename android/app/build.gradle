@@ -15,8 +15,8 @@ android {
         applicationId "cc.worldos.app"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 4
-        versionName "1.1"
+        versionCode 6
+        versionName "1.2"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
@@ -72,4 +72,31 @@ try {
     }
 } catch(Exception e) {
     logger.info("google-services.json not found, google-services plugin not applied. Push Notifications won't work")
+}
+
+// Build 6 is the first release that the Web bridge may register directly with FCM.
+// Debug builds still work from a clean clone without private service/signing files.
+def verifyReleaseConfiguration = tasks.register('verifyReleaseConfiguration') {
+    doLast {
+        if (!releaseSigningConfigured) {
+            throw new GradleException('Release requires android/keystore.properties')
+        }
+        def servicesFile = file('google-services.json')
+        if (!servicesFile.exists()) {
+            throw new GradleException('Release requires android/app/google-services.json for FCM')
+        }
+        def services = new groovy.json.JsonSlurper().parse(servicesFile)
+        if (services.project_info?.project_id != 'worldos-3fb07' ||
+            !services.client?.any { it.client_info?.android_client_info?.package_name == 'cc.worldos.app' }) {
+            throw new GradleException('Release Firebase project/package must be worldos-3fb07 / cc.worldos.app')
+        }
+        def capacitorFile = file('src/main/assets/capacitor.config.json')
+        if (!capacitorFile.exists() ||
+            new groovy.json.JsonSlurper().parse(capacitorFile).server?.url != 'https://worldos.cc') {
+            throw new GradleException('Run release Capacitor sync: server URL must be exactly https://worldos.cc')
+        }
+    }
+}
+tasks.matching { it.name == 'preReleaseBuild' }.configureEach {
+    dependsOn verifyReleaseConfiguration
 }
