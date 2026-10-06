@@ -57,6 +57,10 @@ dependencies {
     implementation "androidx.coordinatorlayout:coordinatorlayout:$androidxCoordinatorLayoutVersion"
     implementation "androidx.core:core-splashscreen:$coreSplashScreenVersion"
     implementation project(':capacitor-android')
+    // AdMob mediation: Unity Ads bidding (Game ID / placement are configured in the AdMob
+    // console, not here). Requires play-services-ads 25.5.0+, which Gradle resolves over the
+    // AdMob plugin's 25.4.+ range.
+    implementation "com.google.ads.mediation:unity:4.21.0.0"
     testImplementation "junit:junit:$junitVersion"
     androidTestImplementation "androidx.test.ext:junit:$androidxJunitVersion"
     androidTestImplementation "androidx.test.espresso:espresso-core:$androidxEspressoCoreVersion"
