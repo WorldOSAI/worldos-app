@@ -1,10 +1,12 @@
 // @ts-check
 // Remembers the window's size, position, maximized and fullscreen state between launches.
+// The game opens fullscreen until the player leaves fullscreen once (F11 / the menu); that
+// choice is then remembered.
 const { app, screen } = require("electron");
 const fs = require("node:fs");
 const path = require("node:path");
 
-const DEFAULTS = { width: 1440, height: 900, maximized: false, fullscreen: false };
+const DEFAULTS = { width: 1440, height: 900, maximized: false, fullscreen: true };
 
 /** @typedef {{ x?: number, y?: number, width: number, height: number, maximized: boolean, fullscreen: boolean }} WindowState */
 
@@ -21,7 +23,7 @@ function load() {
       width: clampSize(saved.width, DEFAULTS.width),
       height: clampSize(saved.height, DEFAULTS.height),
       maximized: saved.maximized === true,
-      fullscreen: saved.fullscreen === true,
+      fullscreen: saved.fullscreen !== false,
     };
     // Only restore a position that is still on a connected display (a monitor may
     // have been unplugged since the last session).

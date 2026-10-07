@@ -2,7 +2,7 @@
   "name": "worldos-desktop",
   "productName": "WorldOS",
   "private": true,
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "WorldOS desktop shell for Steam",
   "author": "WorldOS",
   "main": "src/main.js",

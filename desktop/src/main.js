@@ -3,7 +3,7 @@
 // web app lives here. The shell adds: Steamworks (overlay, auth tickets, store, DLC,
 // achievements), OAuth hand-back from the system browser, window/fullscreen handling,
 // and a navigation fence that keeps every other origin in the system browser.
-const { app, BrowserWindow, Menu, ipcMain, nativeTheme, session, shell } = require("electron");
+const { app, BrowserWindow, Menu, ipcMain, session, shell } = require("electron");
 const path = require("node:path");
 const { randomUUID } = require("node:crypto");
 const { PRODUCTION_ORIGIN, STEAM_APP_ID, PROTOCOL } = require("./config");
@@ -20,7 +20,9 @@ const LAUNCH_ID = randomUUID();
 
 // Painted before the page's first frame: the site's --background (globals.css), so a
 // dark-mode system doesn't flash white on launch.
-const backgroundColor = () => (nativeTheme.shouldUseDarkColors ? "#0d0d0d" : "#f5f5f7");
+// The site opens dark in the shell (no saved color mode = dark), so paint the window dark
+// before the first frame whatever the OS theme — no white flash on launch.
+const backgroundColor = () => "#0d0d0d";
 
 /** @type {BrowserWindow | null} */
 let mainWindow = null;
