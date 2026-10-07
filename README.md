@@ -1,6 +1,7 @@
 # WorldOS App
 
-Native iOS and Android shell for WorldOS, built with Capacitor.
+Native shells for WorldOS: iOS and Android built with Capacitor (repository root),
+and the Steam desktop shell built with Electron ([desktop/](./desktop/README.md)).
 
 This repository owns native projects, native configuration, native dependencies,
 signing/build automation, and App Store/Google Play releases. The installed shell

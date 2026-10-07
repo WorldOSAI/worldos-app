@@ -1,0 +1,88 @@
+{
+  "name": "worldos-desktop",
+  "productName": "WorldOS",
+  "private": true,
+  "version": "0.1.2",
+  "description": "WorldOS desktop shell for Steam",
+  "author": "WorldOS",
+  "main": "src/main.js",
+  "scripts": {
+    "start": "electron .",
+    "check": "node scripts/check-release.js",
+    "dist:win": "node scripts/check-release.js && electron-builder --win",
+    "dist:mac": "node scripts/check-release.js && electron-builder --mac",
+    "steam:vdf": "node scripts/steam-vdf.js",
+    "steam:upload": "bash scripts/steam-upload.sh"
+  },
+  "dependencies": {
+    "steamworks.js": "0.4.0"
+  },
+  "devDependencies": {
+    "electron": "44.4.5",
+    "electron-builder": "26.15.3"
+  },
+  "build": {
+    "appId": "cc.worldos.desktop",
+    "productName": "WorldOS",
+    "copyright": "Copyright © WorldOS",
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "files": [
+      "src/**/*",
+      "package.json"
+    ],
+    "asarUnpack": [
+      "node_modules/steamworks.js/dist/**"
+    ],
+    "protocols": [
+      {
+        "name": "WorldOS",
+        "schemes": [
+          "worldos-desktop"
+        ]
+      }
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "dir",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "build/icon.png",
+      "files": [
+        "!node_modules/steamworks.js/dist/osx/**",
+        "!node_modules/steamworks.js/dist/linux64/**",
+        "!node_modules/steamworks.js/dist/win64/*.lib"
+      ]
+    },
+    "mac": {
+      "target": [
+        {
+          "target": "dir",
+          "arch": [
+            "universal"
+          ]
+        }
+      ],
+      "icon": "build/icon.png",
+      "category": "public.app-category.simulation-games",
+      "identity": "-",
+      "hardenedRuntime": true,
+      "entitlements": "build/entitlements.mac.plist",
+      "entitlementsInherit": "build/entitlements.mac.plist",
+      "extendInfo": {
+        "NSMicrophoneUsageDescription": "WorldOS uses the microphone for voice input."
+      },
+      "files": [
+        "!node_modules/steamworks.js/dist/win64/**",
+        "!node_modules/steamworks.js/dist/linux64/**"
+      ],
+      "x64ArchFiles": "Contents/Resources/app.asar.unpacked/node_modules/steamworks.js/dist/osx/*"
+    }
+  }
+}
