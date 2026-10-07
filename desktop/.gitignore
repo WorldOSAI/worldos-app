@@ -1,0 +1,6 @@
+node_modules/
+dist/
+steam/build/
+steam/output/
+steam_appid.txt
+.DS_Store

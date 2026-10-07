@@ -10,8 +10,13 @@
 
 - This repository owns `android/**`, `ios/**`, `capacitor.config.ts`, native
   dependencies/configuration, native assets/code, signing, builds, and store releases.
-- WorldSims owns Next.js/Web/API/Supabase, `lib/native/**`, `window.WorldOSNative`, and
-  server-side billing/reward authority. Do not copy or submodule WorldSims.
+- It also owns `desktop/**`, the Electron shell released on Steam. `desktop/` has its
+  own `package.json` and lockfile. Never add Electron/Steam packages to the root
+  manifest or Capacitor packages to `desktop/`. Read `desktop/README.md` before
+  changing it.
+- WorldSims owns Next.js/Web/API/Supabase, `lib/native/**`, `window.WorldOSNative`,
+  `window.WorldOSDesktop` types, and server-side billing/reward authority. Do not copy
+  or submodule WorldSims.
 - A clean clone must install, sync, and build both platforms without WorldSims.
 - Production/release builds must fail unless the server URL is exactly
   `https://worldos.cc`; local/Preview URLs are development-only.

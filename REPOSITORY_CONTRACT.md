@@ -6,7 +6,10 @@ Web counterpart: `WorldOSAI/WorldSims/docs/worldos-app-architecture.md`
 ## Responsibility
 
 This repository builds and releases the `cc.worldos.app` Capacitor shell for iOS and
-Android. The shell normally loads `https://worldos.cc`.
+Android, and the `cc.worldos.desktop` Electron shell for Steam (`desktop/`). Both
+shells normally load `https://worldos.cc`, and every rule below applies to both.
+`desktop/scripts/check-release.js` is the desktop production-origin guard.
+Steamworks build credentials, like signing material, are never committed.
 
 It owns:
 
