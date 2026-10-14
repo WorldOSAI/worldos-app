@@ -166,6 +166,7 @@ class WorldOSBridgeViewController: CAPBridgeViewController {
         // mode registerPluginType(_:) intentionally returns without doing anything,
         // so an app-local plugin must be registered as an instance instead.
         bridge?.registerPluginInstance(NavigationGesturePlugin())
+        bridge?.registerPluginInstance(AppReviewContextPlugin())
         bridge?.registerPluginInstance(trackingAuthorization)
         webView?.allowsBackForwardNavigationGestures = false
         if let webView, let handler = webView.navigationDelegate as? (NSObject & WKNavigationDelegate) {
@@ -202,5 +203,31 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 
     func scene(_ scene: UIScene, continue userActivity: NSUserActivity) {
         SceneDelegateProxy.shared.scene(scene, continue: userActivity)
+    }
+}
+
+// Process identity survives WebView reloads and foreground transitions. The installation
+// ID is random and scoped to this app; it is not an advertising/device identifier.
+@objc(AppReviewContextPlugin)
+class AppReviewContextPlugin: CAPPlugin, CAPBridgedPlugin {
+    let identifier = "AppReviewContextPlugin"
+    let jsName = "AppReviewContext"
+    let pluginMethods: [CAPPluginMethod] = [CAPPluginMethod(name: "getContext", returnType: CAPPluginReturnPromise)]
+    private static let sessionId = UUID().uuidString
+
+    @objc func getContext(_ call: CAPPluginCall) {
+        DispatchQueue.main.async {
+            let defaults = UserDefaults.standard
+            let key = "worldos.review.installation"
+            let installationId = defaults.string(forKey: key) ?? UUID().uuidString
+            defaults.set(installationId, forKey: key)
+            call.resolve([
+                "installationId": installationId,
+                "sessionId": Self.sessionId,
+                "active": UIApplication.shared.applicationState == .active,
+                "appVersion": Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "unknown",
+                "osVersion": UIDevice.current.systemVersion
+            ])
+        }
     }
 }

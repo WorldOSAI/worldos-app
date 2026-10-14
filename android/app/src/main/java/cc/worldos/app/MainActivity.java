@@ -13,6 +13,7 @@ import com.getcapacitor.BridgeActivity;
 public class MainActivity extends BridgeActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+        registerPlugin(AppReviewContextPlugin.class);
         super.onCreate(savedInstanceState);
 
         // Android 15+ enforces edge-to-edge for apps targeting API 35 or later.
