@@ -2,6 +2,7 @@ import UIKit
 import Capacitor
 import WebKit
 import AppTrackingTransparency
+import Security
 
 @objc(TrackingAuthorizationPlugin)
 class TrackingAuthorizationPlugin: CAPPlugin, CAPBridgedPlugin {
@@ -167,6 +168,7 @@ class WorldOSBridgeViewController: CAPBridgeViewController {
         // so an app-local plugin must be registered as an instance instead.
         bridge?.registerPluginInstance(NavigationGesturePlugin())
         bridge?.registerPluginInstance(AppReviewContextPlugin())
+        bridge?.registerPluginInstance(DeviceIdentityPlugin())
         bridge?.registerPluginInstance(trackingAuthorization)
         webView?.allowsBackForwardNavigationGestures = false
         if let webView, let handler = webView.navigationDelegate as? (NSObject & WKNavigationDelegate) {
@@ -229,5 +231,53 @@ class AppReviewContextPlugin: CAPPlugin, CAPBridgedPlugin {
                 "osVersion": UIDevice.current.systemVersion
             ])
         }
+    }
+}
+
+// A device id that survives uninstall/reinstall, for fraud prevention only (WorldSims caps the
+// accounts one phone may create — lib/deviceLimit.server.ts). A random UUID kept in the Keychain,
+// which iOS keeps when the app is deleted; ThisDeviceOnly so a backup restored onto another phone
+// does not carry it over. Not the IDFA, never used for ads.
+@objc(DeviceIdentityPlugin)
+class DeviceIdentityPlugin: CAPPlugin, CAPBridgedPlugin {
+    let identifier = "DeviceIdentityPlugin"
+    let jsName = "DeviceIdentity"
+    let pluginMethods: [CAPPluginMethod] = [CAPPluginMethod(name: "getId", returnType: CAPPluginReturnPromise)]
+    private static let service = "cc.worldos.app.device-identity"
+    private static let account = "device-id"
+
+    @objc func getId(_ call: CAPPluginCall) {
+        if let id = Self.read() ?? Self.create() {
+            call.resolve(["id": "i_" + id])
+        } else {
+            call.reject("Device identity unavailable")
+        }
+    }
+
+    private static func baseQuery() -> [String: Any] {
+        [kSecClass as String: kSecClassGenericPassword,
+         kSecAttrService as String: service,
+         kSecAttrAccount as String: account]
+    }
+
+    private static func read() -> String? {
+        var query = baseQuery()
+        query[kSecReturnData as String] = true
+        query[kSecMatchLimit as String] = kSecMatchLimitOne
+        var item: CFTypeRef?
+        guard SecItemCopyMatching(query as CFDictionary, &item) == errSecSuccess,
+              let data = item as? Data, let id = String(data: data, encoding: .utf8), !id.isEmpty else { return nil }
+        return id
+    }
+
+    private static func create() -> String? {
+        let id = UUID().uuidString.lowercased()
+        var query = baseQuery()
+        query[kSecValueData as String] = Data(id.utf8)
+        query[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
+        let status = SecItemAdd(query as CFDictionary, nil)
+        // a concurrent first call may have added it a moment ago: use whichever is stored
+        if status == errSecDuplicateItem { return read() }
+        return status == errSecSuccess ? id : nil
     }
 }
