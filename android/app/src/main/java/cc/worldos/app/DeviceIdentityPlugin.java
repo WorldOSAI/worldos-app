@@ -9,6 +9,7 @@ import com.getcapacitor.PluginMethod;
 import com.getcapacitor.annotation.CapacitorPlugin;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
+import java.util.Locale;
 
 /**
  * A device id that survives uninstall/reinstall, for fraud prevention only (WorldSims caps the
@@ -33,7 +34,8 @@ public class DeviceIdentityPlugin extends Plugin {
             byte[] digest = MessageDigest.getInstance("SHA-256")
                 .digest(("worldos-device:" + androidId).getBytes(StandardCharsets.UTF_8));
             StringBuilder hex = new StringBuilder();
-            for (int i = 0; i < 20; i++) hex.append(String.format("%02x", digest[i]));
+            // ROOT: the server only accepts ASCII hex, whatever the phone's language
+            for (int i = 0; i < 20; i++) hex.append(String.format(Locale.ROOT, "%02x", digest[i]));
             JSObject result = new JSObject();
             result.put("id", "a_" + hex);
             call.resolve(result);
