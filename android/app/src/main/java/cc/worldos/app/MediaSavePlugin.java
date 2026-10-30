@@ -3,6 +3,7 @@ package cc.worldos.app;
 import android.content.ContentResolver;
 import android.content.ContentValues;
 import android.content.Intent;
+import android.database.Cursor;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Environment;
@@ -11,6 +12,7 @@ import android.util.Base64;
 import androidx.annotation.RequiresApi;
 import androidx.core.content.FileProvider;
 import com.getcapacitor.JSObject;
+import com.getcapacitor.Logger;
 import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginCall;
 import com.getcapacitor.PluginMethod;
@@ -20,6 +22,7 @@ import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
@@ -39,7 +42,17 @@ public class MediaSavePlugin extends Plugin {
     private static final String CACHE_DIR = "media-save";
     /** the 48s 1080p video is ~27 MB; anything far past that is not ours */
     private static final long MAX_BYTES = 200L * 1024 * 1024;
-    private static final List<String> MIME_TYPES = Arrays.asList("video/mp4", "video/webm", "image/png", "image/jpeg");
+    /** a file handed to the share sheet stays readable this long for the app the player picked */
+    private static final long SHARED_FILE_TTL_MS = 60L * 60 * 1000;
+    /** file systems cap a name at 255 bytes; non-Latin names stay well under it */
+    private static final int MAX_NAME_BYTES = 200;
+    private static final List<String> MIME_TYPES = Arrays.asList(
+        "video/mp4",
+        "video/webm",
+        "image/png",
+        "image/jpeg",
+        "image/webp"
+    );
 
     private String sessionId;
     private File pendingFile;
@@ -54,18 +67,22 @@ public class MediaSavePlugin extends Plugin {
             call.reject("Unsupported media type");
             return;
         }
+        discard();
         try {
-            File dir = new File(getContext().getCacheDir(), CACHE_DIR);
-            File[] stale = dir.listFiles();
-            if (stale != null) for (File f : stale) f.delete();
-            if (!dir.isDirectory() && !dir.mkdirs()) throw new Exception("cache dir");
+            File root = new File(getContext().getCacheDir(), CACHE_DIR);
+            purgeStale(root);
+            // each save gets its own folder, so a same-named file another app is still reading
+            // from an earlier share is never overwritten
+            String id = UUID.randomUUID().toString();
+            File dir = new File(root, id);
+            if (!dir.mkdirs()) throw new Exception("cache dir");
             pendingFile = new File(dir, safeName(call.getString("fileName", "")));
             new FileOutputStream(pendingFile).close();
             pendingMime = mime;
             written = 0;
-            sessionId = UUID.randomUUID().toString();
+            sessionId = id;
             JSObject result = new JSObject();
-            result.put("id", sessionId);
+            result.put("id", id);
             call.resolve(result);
         } catch (Exception error) {
             discard();
@@ -101,7 +118,7 @@ public class MediaSavePlugin extends Plugin {
             if (empty) throw new Exception("empty");
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                 saveToGallery(file, mime);
-                file.delete();
+                deleteSave(file);
                 JSObject result = new JSObject();
                 result.put("savedTo", "gallery");
                 call.resolve(result);
@@ -109,7 +126,7 @@ public class MediaSavePlugin extends Plugin {
             }
             // Android 9 and older need a storage permission to write the gallery; the share
             // sheet hands the file to an app the player picks instead (the file stays in the
-            // cache for that app to read, and the next begin clears it)
+            // cache for that app to read; a later begin clears it once it is an hour old)
             Uri uri = FileProvider.getUriForFile(getContext(), getContext().getPackageName() + ".fileprovider", file);
             Intent send = new Intent(Intent.ACTION_SEND).setType(mime).putExtra(Intent.EXTRA_STREAM, uri)
                 .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
@@ -120,12 +137,12 @@ public class MediaSavePlugin extends Plugin {
                     result.put("savedTo", "share");
                     call.resolve(result);
                 } catch (Exception error) {
-                    file.delete();
+                    deleteSave(file);
                     call.reject("Media save failed", error);
                 }
             });
         } catch (Exception error) {
-            if (file != null) file.delete();
+            deleteSave(file);
             call.reject("Media save failed", error);
         }
     }
@@ -154,19 +171,36 @@ public class MediaSavePlugin extends Plugin {
             : MediaStore.Images.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY);
         Uri item = resolver.insert(collection, values);
         if (item == null) throw new Exception("insert failed");
-        try {
-            try (InputStream in = new FileInputStream(file); OutputStream out = resolver.openOutputStream(item)) {
-                if (out == null) throw new Exception("open failed");
-                byte[] buffer = new byte[64 * 1024];
-                for (int n; (n = in.read(buffer)) > 0; ) out.write(buffer, 0, n);
-            }
-            ContentValues done = new ContentValues();
-            done.put(MediaStore.MediaColumns.IS_PENDING, 0);
-            // a row left pending stays hidden from the gallery (the system purges it later)
-            if (resolver.update(item, done, null, null) != 1) throw new Exception("publish failed");
+        try (InputStream in = new FileInputStream(file); OutputStream out = resolver.openOutputStream(item)) {
+            if (out == null) throw new Exception("open failed");
+            byte[] buffer = new byte[64 * 1024];
+            for (int n; (n = in.read(buffer)) > 0; ) out.write(buffer, 0, n);
         } catch (Exception error) {
             resolver.delete(item, null, null);
             throw error;
+        }
+        // A row left pending never shows in the gallery and is purged later, so "saved" is only
+        // reported once the row is published; an odd update count is checked against the row.
+        try {
+            ContentValues done = new ContentValues();
+            done.put(MediaStore.MediaColumns.IS_PENDING, 0);
+            int updated = resolver.update(item, done, null, null);
+            if (updated != 1) {
+                if (!isPublished(resolver, item)) throw new Exception("publish failed");
+                Logger.warn("MediaSave", "publishing " + item + " updated " + updated + " rows, but it is published");
+            }
+        } catch (Exception error) {
+            resolver.delete(item, null, null);
+            throw error;
+        }
+    }
+
+    /** false for a row still pending — or one a default query no longer returns */
+    private static boolean isPublished(ContentResolver resolver, Uri item) {
+        try (Cursor row = resolver.query(item, new String[] { MediaStore.MediaColumns.IS_PENDING }, null, null, null)) {
+            return row != null && row.moveToFirst() && row.getInt(0) == 0;
+        } catch (Exception error) {
+            return false;
         }
     }
 
@@ -179,7 +213,7 @@ public class MediaSavePlugin extends Plugin {
 
     /** forgets the save and deletes its partial file */
     private void discard() {
-        if (pendingFile != null) pendingFile.delete();
+        if (pendingFile != null) deleteSave(pendingFile);
         reset();
     }
 
@@ -190,12 +224,49 @@ public class MediaSavePlugin extends Plugin {
         written = 0;
     }
 
-    /** the page's file name, reduced to characters every gallery and file system accepts */
+    /** removes a save's file and its folder */
+    private static void deleteSave(File file) {
+        if (file == null) return;
+        file.delete();
+        File dir = file.getParentFile();
+        if (dir != null) dir.delete();
+    }
+
+    /** removes saves older than the share window — and anything else left in the cache folder */
+    private static void purgeStale(File root) {
+        File[] entries = root.listFiles();
+        if (entries == null) return;
+        long cutoff = System.currentTimeMillis() - SHARED_FILE_TTL_MS;
+        for (File entry : entries) {
+            if (entry.lastModified() >= cutoff && entry.isDirectory()) continue;
+            File[] files = entry.listFiles();
+            if (files != null) for (File f : files) f.delete();
+            entry.delete();
+        }
+    }
+
+    /** the page's file name with only what a file system rejects replaced; letters in any script
+     *  stay. Kept under MAX_NAME_BYTES of UTF-8 by trimming whole characters off the base name,
+     *  never the extension; a leading dot (a hidden file) gets a prefix. */
     private static String safeName(String name) {
-        String clean = name.replaceAll("[^A-Za-z0-9._-]", "_");
-        // keep the tail (the extension); a leading dot would hide the file
-        if (clean.length() > 120) clean = clean.substring(clean.length() - 120);
-        if (clean.isEmpty() || clean.startsWith(".")) clean = "worldos" + clean;
-        return clean;
+        String clean = name.replaceAll("[\\\\/:*?\"<>|\\p{Cntrl}]", "_").trim();
+        String ext = "";
+        int dot = clean.lastIndexOf('.');
+        if (dot > 0 && clean.length() - dot <= 10) {
+            ext = clean.substring(dot);
+            clean = clean.substring(0, dot);
+        }
+        int budget = MAX_NAME_BYTES - ext.getBytes(StandardCharsets.UTF_8).length;
+        StringBuilder base = new StringBuilder();
+        for (int i = 0, used = 0; i < clean.length(); ) {
+            int codePoint = clean.codePointAt(i);
+            int bytes = new String(Character.toChars(codePoint)).getBytes(StandardCharsets.UTF_8).length;
+            if (used + bytes > budget) break;
+            base.appendCodePoint(codePoint);
+            used += bytes;
+            i += Character.charCount(codePoint);
+        }
+        String out = base + ext;
+        return out.isEmpty() || out.startsWith(".") ? "worldos" + out : out;
     }
 }
