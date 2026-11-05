@@ -49,8 +49,8 @@ class TrackingAuthorizationPlugin: CAPPlugin, CAPBridgedPlugin {
 
     // Called after the WebView is presented and whenever Settings returns focus.
     // No prompt here: the Web raises the system prompt itself (requestAuthorization),
-    // after its own explainer and only once the visitor is signed in — asking cold on
-    // the first screen was the lowest-yield moment, and Apple only lets us ask once.
+    // once sign-in and other permission dialogs have finished. The system owns
+    // whether it can present a prompt and records the visitor's decision.
     func onActive() {
         guard webViewPresented, UIApplication.shared.applicationState == .active else { return }
         notifyListeners("statusChanged", data: statusPayload())

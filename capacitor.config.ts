@@ -16,6 +16,10 @@ const config: CapacitorConfig = {
   appId: "cc.worldos.app",
   appName: "WorldOS",
   webDir: "mobile-dist",
+  ios: {
+    // WorldSims restricts App Studio from the first request, before cookies exist.
+    appendUserAgent: "WorldOSNative/ios",
+  },
   server: {
     url: serverUrl,
     cleartext: serverUrl.startsWith("http://"),
