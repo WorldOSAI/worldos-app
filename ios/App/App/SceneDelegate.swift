@@ -3,6 +3,7 @@ import Capacitor
 import WebKit
 import AppTrackingTransparency
 import Security
+import OSLog
 
 @objc(TrackingAuthorizationPlugin)
 class TrackingAuthorizationPlugin: CAPPlugin, CAPBridgedPlugin {
@@ -17,6 +18,9 @@ class TrackingAuthorizationPlugin: CAPPlugin, CAPBridgedPlugin {
     private var webViewPresented = false
     private var requesting = false
     private var pendingCalls: [CAPPluginCall] = []
+    private var startupPrompt: DispatchWorkItem?
+    private var startupAttempts = 0
+    private let trackingLog = Logger(subsystem: "cc.worldos.app", category: "TrackingAuthorization")
 
     override func load() {
         activationObserver = NotificationCenter.default.addObserver(
@@ -27,6 +31,7 @@ class TrackingAuthorizationPlugin: CAPPlugin, CAPBridgedPlugin {
     }
 
     deinit {
+        startupPrompt?.cancel()
         if let activationObserver { NotificationCenter.default.removeObserver(activationObserver) }
     }
 
@@ -47,17 +52,43 @@ class TrackingAuthorizationPlugin: CAPPlugin, CAPBridgedPlugin {
         onActive()
     }
 
-    // Called after the WebView is presented and whenever Settings returns focus.
-    // No prompt here: the Web raises the system prompt itself (requestAuthorization),
-    // once sign-in and other permission dialogs have finished. The system owns
-    // whether it can present a prompt and records the visitor's decision.
+    // The native installation owns ATT startup. Do not require remote-page
+    // hydration, account state or third-party SDK setup to ask the system.
+    // The existing Web method shares this request and remains compatible.
     func onActive() {
         guard webViewPresented, UIApplication.shared.applicationState == .active else { return }
         notifyListeners("statusChanged", data: statusPayload())
+        scheduleStartupPrompt()
+    }
+
+    private func scheduleStartupPrompt() {
+        guard startupPrompt == nil, startupAttempts < 3, !requesting,
+              webViewPresented, UIApplication.shared.applicationState == .active,
+              ATTrackingManager.trackingAuthorizationStatus == .notDetermined else { return }
+        let work = DispatchWorkItem { [weak self] in
+            guard let self else { return }
+            self.startupPrompt = nil
+            guard UIApplication.shared.applicationState == .active else { return }
+            // Wait out native sign-in/permission presentations. Web overlays do
+            // not own or gate this installation-level system permission.
+            guard self.bridge?.viewController?.presentedViewController == nil else {
+                self.scheduleStartupPrompt()
+                return
+            }
+            guard !self.requesting,
+                  ATTrackingManager.trackingAuthorizationStatus == .notDetermined else { return }
+            self.startupAttempts += 1
+            self.requestIfNeeded(source: "startup")
+        }
+        startupPrompt = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2, execute: work)
     }
 
     @objc func getStatus(_ call: CAPPluginCall) {
-        DispatchQueue.main.async { call.resolve(self.statusPayload()) }
+        DispatchQueue.main.async {
+            self.trackingLog.info("ATT Web status lookup: \(ATTrackingManager.trackingAuthorizationStatus.rawValue, privacy: .public)")
+            call.resolve(self.statusPayload())
+        }
     }
 
     @objc func requestAuthorization(_ call: CAPPluginCall) {
@@ -75,13 +106,16 @@ class TrackingAuthorizationPlugin: CAPPlugin, CAPBridgedPlugin {
                 return
             }
             self.pendingCalls.append(call)
-            self.requestIfNeeded()
+            self.requestIfNeeded(source: "web")
         }
     }
 
-    private func requestIfNeeded() {
+    private func requestIfNeeded(source: String) {
         guard !requesting, ATTrackingManager.trackingAuthorizationStatus == .notDetermined else { return }
+        startupPrompt?.cancel()
+        startupPrompt = nil
         requesting = true
+        trackingLog.info("ATT requesting authorization from \(source, privacy: .public)")
         ATTrackingManager.requestTrackingAuthorization { [weak self] _ in
             DispatchQueue.main.async {
                 guard let self else { return }
@@ -91,6 +125,8 @@ class TrackingAuthorizationPlugin: CAPPlugin, CAPBridgedPlugin {
                 self.pendingCalls.removeAll()
                 calls.forEach { $0.resolve(payload) }
                 self.notifyListeners("statusChanged", data: payload)
+                self.trackingLog.info("ATT authorization result: \(ATTrackingManager.trackingAuthorizationStatus.rawValue, privacy: .public)")
+                self.scheduleStartupPrompt()
             }
         }
     }
