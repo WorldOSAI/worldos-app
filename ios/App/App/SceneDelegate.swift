@@ -199,6 +199,17 @@ class WorldOSBridgeViewController: CAPBridgeViewController {
 
     override func capacitorDidLoad() {
         super.capacitorDidLoad()
+        // The fallback pages must retry the configured remote service, not
+        // Capacitor.getServerUrl(), which returns the local asset origin.
+        if let serverURL = bridge?.config.appStartServerURL,
+           let encoded = try? JSONEncoder().encode(serverURL.absoluteString),
+           let literal = String(data: encoded, encoding: .utf8) {
+            webView?.configuration.userContentController.addUserScript(WKUserScript(
+                source: "window.WorldOSAppServerURL = \(literal);",
+                injectionTime: .atDocumentStart,
+                forMainFrameOnly: true
+            ))
+        }
         // Capacitor 8 bridges auto-register package plugins by default. In that
         // mode registerPluginType(_:) intentionally returns without doing anything,
         // so an app-local plugin must be registered as an instance instead.
