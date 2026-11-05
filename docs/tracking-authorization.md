@@ -1,7 +1,7 @@
 # iOS tracking authorization
 
-The native `TrackingAuthorization` Capacitor plugin requests ATT once per bridge
-lifetime when the app first becomes active with its WebView presented. iOS controls
+The native `TrackingAuthorization` Capacitor plugin requests ATT when WorldSims
+calls `requestAuthorization()` with the app active. iOS controls
 whether a prompt appears; an existing decision or system restriction does not
 produce another prompt. The system status is always the source of truth.
 
@@ -33,8 +33,9 @@ const tracking = registerPlugin<{
   the consumer unmounts.
 - Only `authorized` permits ATT-controlled tracking. An unavailable decision is
   not consent. No status is persisted by this plugin.
-- The native launch path requests automatically. `requestAuthorization()` is also
-  available for an explicit retry after other permission dialogs have finished.
+- The native launch path only publishes status. WorldSims requests the system UI
+  after sign-in when the app is active and other dialogs have finished. It does not
+  use a custom pre-alert or a local snooze. Interrupted requests have bounded retries.
   Concurrent requests share one native prompt. Inactive requests reject with
   `APP_NOT_ACTIVE`; requests after a decision return the current status.
 - `statusChanged` is emitted on app activation (including return from Settings)
@@ -64,3 +65,15 @@ complete tracking-consent fix or resubmit it as such.
    if the system returns `notDetermined`, retry only once active after they close.
 8. After WorldSims integration, verify actual outgoing traffic for every state and
    record the fresh-install flow on a physical device for App Review.
+
+## iOS App Studio restriction
+
+The iOS container appends `WorldOSNative/ios` to the WebView user agent so the Web
+can restrict App Studio before the first page has set a platform cookie. WorldSims
+hides creation/edit entry points, guards `/apps/create` (including `?slug=`), and
+refuses `/api/app-studio` and its subroutes. This restriction applies to every iOS
+user, independent of account, date, or review status. Existing Build 10 also uses
+the Web's `ws-native=ios` cookie and client-side container guard.
+
+Hiding App Studio does not remove the execution of already-published widgets.
+Do not describe it to App Review as removing all dynamic code execution.
