@@ -4,6 +4,8 @@ import WebKit
 import AppTrackingTransparency
 import Security
 import OSLog
+import Photos
+import UniformTypeIdentifiers
 
 @objc(TrackingAuthorizationPlugin)
 class TrackingAuthorizationPlugin: CAPPlugin, CAPBridgedPlugin {
@@ -192,6 +194,180 @@ final class CancelledNavigationFilter: NSObject, WKNavigationDelegate {
     }
 }
 
+/// Saves a file the page made (map timelapse video, share poster) to Photos. The WebView
+/// ignores `<a download>` on a blob: URL, so without this the page's Download button does
+/// nothing. Same contract as the Android MediaSavePlugin: the page streams the bytes in base64
+/// chunks (begin → append… → finish) into a temp file, then finish adds it to Photos with
+/// add-only access (NSPhotoLibraryAddUsageDescription). One file at a time: a new begin discards
+/// an unfinished one, and every later call names its session, so a superseded save can't touch
+/// the new one. A denied Photos permission rejects with code PERMISSION_DENIED.
+@objc(MediaSavePlugin)
+class MediaSavePlugin: CAPPlugin, CAPBridgedPlugin {
+    let identifier = "MediaSavePlugin"
+    let jsName = "MediaSave"
+    let pluginMethods: [CAPPluginMethod] = [
+        CAPPluginMethod(name: "begin", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "append", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "finish", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "cancel", returnType: CAPPluginReturnPromise)
+    ]
+
+    /// the 48s 1080p video is ~27 MB; anything far past that is not ours
+    private static let maxBytes = 200 * 1024 * 1024
+    /// Photos takes these; webm is not one of them, so it is refused up front
+    private static let mimeTypes: Set<String> = ["video/mp4", "image/png", "image/jpeg", "image/webp"]
+
+    /// every session field is touched only on this queue
+    private let queue = DispatchQueue(label: "cc.worldos.app.media-save")
+    private var sessionId: String?
+    private var pendingFile: URL?
+    private var pendingMime: String?
+    private var written = 0
+
+    @objc func begin(_ call: CAPPluginCall) {
+        // a codecs parameter ("video/mp4;codecs=avc1") is not part of the file's type
+        let mime = (call.getString("mimeType") ?? "").split(separator: ";").first
+            .map { $0.trimmingCharacters(in: .whitespaces).lowercased() } ?? ""
+        guard Self.mimeTypes.contains(mime) else {
+            call.reject("Unsupported media type")
+            return
+        }
+        let fileName = Self.safeName(call.getString("fileName") ?? "")
+        queue.async {
+            self.discard()
+            do {
+                // each save gets its own folder under tmp; the system clears tmp on its own
+                let id = UUID().uuidString
+                let dir = FileManager.default.temporaryDirectory
+                    .appendingPathComponent("media-save", isDirectory: true)
+                    .appendingPathComponent(id, isDirectory: true)
+                try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+                let file = dir.appendingPathComponent(fileName)
+                guard FileManager.default.createFile(atPath: file.path, contents: nil) else {
+                    throw CocoaError(.fileWriteUnknown)
+                }
+                self.sessionId = id
+                self.pendingFile = file
+                self.pendingMime = mime
+                self.written = 0
+                call.resolve(["id": id])
+            } catch {
+                self.discard()
+                call.reject("Media save unavailable", nil, error)
+            }
+        }
+    }
+
+    @objc func append(_ call: CAPPluginCall) {
+        queue.async {
+            guard let file = self.currentFile(call) else { return }
+            do {
+                guard let bytes = Data(base64Encoded: call.getString("data") ?? "") else {
+                    throw CocoaError(.coderInvalidValue)
+                }
+                guard self.written + bytes.count <= Self.maxBytes else { throw CocoaError(.fileWriteOutOfSpace) }
+                let handle = try FileHandle(forWritingTo: file)
+                defer { try? handle.close() }
+                try handle.seekToEnd()
+                try handle.write(contentsOf: bytes)
+                self.written += bytes.count
+                call.resolve()
+            } catch {
+                self.discard()
+                call.reject("Media save failed", nil, error)
+            }
+        }
+    }
+
+    @objc func finish(_ call: CAPPluginCall) {
+        queue.async {
+            guard let file = self.currentFile(call), let mime = self.pendingMime else { return }
+            let empty = self.written == 0
+            self.reset()
+            if empty {
+                Self.deleteSave(file)
+                call.reject("Media save failed")
+                return
+            }
+            PHPhotoLibrary.requestAuthorization(for: .addOnly) { status in
+                guard status == .authorized || status == .limited else {
+                    Self.deleteSave(file)
+                    call.reject("Photos access denied", "PERMISSION_DENIED")
+                    return
+                }
+                PHPhotoLibrary.shared().performChanges({
+                    let options = PHAssetResourceCreationOptions()
+                    options.originalFilename = file.lastPathComponent
+                    options.uniformTypeIdentifier = UTType(mimeType: mime)?.identifier
+                    PHAssetCreationRequest.forAsset().addResource(
+                        with: mime.hasPrefix("video/") ? .video : .photo, fileURL: file, options: options)
+                }) { saved, error in
+                    Self.deleteSave(file)
+                    if saved {
+                        call.resolve(["savedTo": "gallery"])
+                    } else {
+                        call.reject("Media save failed", nil, error)
+                    }
+                }
+            }
+        }
+    }
+
+    /// drops the named save's partial file; a superseded or finished save is left alone
+    @objc func cancel(_ call: CAPPluginCall) {
+        queue.async {
+            if let id = self.sessionId, id == call.getString("id") { self.discard() }
+            call.resolve()
+        }
+    }
+
+    /// the pending file when `call` names the current save; rejects a superseded one
+    private func currentFile(_ call: CAPPluginCall) -> URL? {
+        if let id = sessionId, id == call.getString("id"), let file = pendingFile { return file }
+        call.reject("No media save in progress")
+        return nil
+    }
+
+    private func discard() {
+        if let file = pendingFile { Self.deleteSave(file) }
+        reset()
+    }
+
+    private func reset() {
+        sessionId = nil
+        pendingFile = nil
+        pendingMime = nil
+        written = 0
+    }
+
+    /// removes a save's file and its folder
+    private static func deleteSave(_ file: URL) {
+        try? FileManager.default.removeItem(at: file.deletingLastPathComponent())
+    }
+
+    /// the page's file name with only what a file system rejects replaced; letters in any script
+    /// stay. Kept under 200 bytes of UTF-8 by trimming whole characters off the base name, never
+    /// the extension; an empty or hidden name gets a prefix.
+    private static func safeName(_ name: String) -> String {
+        let banned = CharacterSet(charactersIn: "\\/:*?\"<>|").union(.controlCharacters)
+        var clean = String(String.UnicodeScalarView(name.unicodeScalars.map { banned.contains($0) ? "_" : $0 }))
+            .trimmingCharacters(in: .whitespaces)
+        var ext = ""
+        if let dot = clean.lastIndex(of: "."), dot > clean.startIndex, clean.distance(from: dot, to: clean.endIndex) <= 10 {
+            ext = String(clean[dot...])
+            clean = String(clean[..<dot])
+        }
+        let budget = 200 - ext.utf8.count
+        var base = ""
+        for character in clean {
+            if base.utf8.count + String(character).utf8.count > budget { break }
+            base.append(character)
+        }
+        let out = base + ext
+        return out.isEmpty || out.hasPrefix(".") ? "worldos" + out : out
+    }
+}
+
 class WorldOSBridgeViewController: CAPBridgeViewController {
     private let trackingAuthorization = TrackingAuthorizationPlugin()
     // navigationDelegate is weak: keep the filter alive for the WebView's lifetime
@@ -206,6 +382,7 @@ class WorldOSBridgeViewController: CAPBridgeViewController {
         bridge?.registerPluginInstance(AppReviewContextPlugin())
         bridge?.registerPluginInstance(DeviceIdentityPlugin())
         bridge?.registerPluginInstance(trackingAuthorization)
+        bridge?.registerPluginInstance(MediaSavePlugin())
         webView?.allowsBackForwardNavigationGestures = false
         if let webView, let handler = webView.navigationDelegate as? (NSObject & WKNavigationDelegate) {
             let filter = CancelledNavigationFilter(forwardingTo: handler)
