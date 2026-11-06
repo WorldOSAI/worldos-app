@@ -236,11 +236,13 @@ class MediaSavePlugin: CAPPlugin, CAPBridgedPlugin {
         queue.async {
             self.discard()
             do {
-                // each save gets its own folder under tmp; the system clears tmp on its own
+                // each save gets its own folder under tmp; folders a killed or abandoned save
+                // left behind are swept here (an in-flight Photos import is minutes younger)
                 let id = UUID().uuidString
-                let dir = FileManager.default.temporaryDirectory
+                let root = FileManager.default.temporaryDirectory
                     .appendingPathComponent("media-save", isDirectory: true)
-                    .appendingPathComponent(id, isDirectory: true)
+                Self.purgeStale(root)
+                let dir = root.appendingPathComponent(id, isDirectory: true)
                 try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
                 let file = dir.appendingPathComponent(fileName)
                 guard FileManager.default.createFile(atPath: file.path, contents: nil) else {
@@ -290,7 +292,8 @@ class MediaSavePlugin: CAPPlugin, CAPBridgedPlugin {
                 return
             }
             PHPhotoLibrary.requestAuthorization(for: .addOnly) { status in
-                guard status == .authorized || status == .limited else {
+                // add-only access is either authorized or not (.limited is a read-write state)
+                guard status == .authorized else {
                     Self.deleteSave(file)
                     call.reject("Photos access denied", "PERMISSION_DENIED")
                     return
@@ -338,6 +341,17 @@ class MediaSavePlugin: CAPPlugin, CAPBridgedPlugin {
         pendingFile = nil
         pendingMime = nil
         written = 0
+    }
+
+    /// removes save folders older than ten minutes
+    private static func purgeStale(_ root: URL) {
+        let cutoff = Date().addingTimeInterval(-10 * 60)
+        let entries = (try? FileManager.default.contentsOfDirectory(
+            at: root, includingPropertiesForKeys: [.contentModificationDateKey])) ?? []
+        for entry in entries {
+            let modified = (try? entry.resourceValues(forKeys: [.contentModificationDateKey]))?.contentModificationDate
+            if (modified ?? .distantPast) < cutoff { try? FileManager.default.removeItem(at: entry) }
+        }
     }
 
     /// removes a save's file and its folder
