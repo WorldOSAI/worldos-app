@@ -18,13 +18,6 @@
       <p>The app could not reach the WorldOS service.</p>
       <p><button id="retry" type="button">Try again</button></p>
     </main>
-    <script>
-      document.getElementById("retry").addEventListener("click", () => {
-        const configuredUrl = window.Capacitor?.getServerUrl?.() || "https://worldos.cc";
-        const url = new URL(configuredUrl);
-        url.searchParams.set("native-retry", Date.now().toString());
-        location.replace(url.toString());
-      });
-    </script>
+    <script src="recovery.js"></script>
   </body>
 </html>
