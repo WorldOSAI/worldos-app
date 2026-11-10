@@ -19,38 +19,6 @@
       <p>Reconnect to the internet to continue your Simulation.</p>
       <button id="retry" type="button">Try again</button>
     </main>
-    <script>
-      const retry = document.getElementById("retry");
-      let checking = false;
-
-      function retryTarget() {
-        const configuredUrl = window.Capacitor?.getServerUrl?.() || "https://worldos.cc";
-        const url = new URL(configuredUrl);
-        url.searchParams.set("native-retry", Date.now().toString());
-        return url.toString();
-      }
-
-      async function reconnect() {
-        if (checking) return;
-        checking = true;
-        retry.disabled = true;
-        retry.textContent = "Checking…";
-
-        try {
-          // no-cors is intentional: a successful opaque response proves that
-          // the remote origin is reachable without depending on page CORS.
-          await fetch(retryTarget(), { cache: "no-store", mode: "no-cors" });
-          location.replace(retryTarget());
-        } catch (_) {
-          checking = false;
-          retry.disabled = false;
-          retry.textContent = "Try again";
-        }
-      }
-
-      retry.addEventListener("click", reconnect);
-      window.addEventListener("online", reconnect);
-      setInterval(reconnect, 5000);
-    </script>
+    <script src="recovery.js"></script>
   </body>
 </html>
