@@ -1,21 +1,23 @@
-# Add project specific ProGuard rules here.
-# You can control the set of applied configuration files using the
-# proguardFiles setting in build.gradle.
+# Release keep rules for cc.worldos.app (R8 is on for release builds).
 #
-# For more details, see
-#   http://developer.android.com/guide/developing/tools/proguard.html
+# Already covered by the libraries' own consumer rules, so not repeated here:
+# Capacitor (@CapacitorPlugin classes, Plugin subclasses incl. our own plugins,
+# Cordova plugins such as OneSignal), social-login (com.getcapacitor.**, okhttp,
+# Google sign-in), Firebase, OneSignal, Play Billing, play-services-ads.
+# @JavascriptInterface members are kept by proguard-android-optimize.txt.
 
-# If your project uses WebView with JS, uncomment the following
-# and specify the fully qualified class name to the JavaScript interface
-# class:
-#-keepclassmembers class fqcn.of.javascript.interface.for.webview {
-#   public *;
-#}
+# Readable crash stacks: Play deobfuscates with the mapping bundled in the AAB.
+-keepattributes SourceFile,LineNumberTable
+-renamesourcefileattribute SourceFile
 
-# Uncomment this to preserve the line number information for
-# debugging stack traces.
-#-keepattributes SourceFile,LineNumberTable
+# AppsFlyer (vendor-documented rules).
+-keep class com.appsflyer.** { *; }
+-keep public class com.android.installreferrer.** { *; }
 
-# If you keep the line number information, uncomment this to
-# hide the original source file name.
-#-renamesourcefileattribute SourceFile
+# AdMob mediation loads adapters by class name.
+-keep class com.google.ads.mediation.unity.** { *; }
+-keep class com.unity3d.ads.** { *; }
+-keep class com.unity3d.services.** { *; }
+
+# RevenueCat ships consumer rules; kept explicitly because purchases are revenue-critical.
+-keep class com.revenuecat.purchases.** { *; }

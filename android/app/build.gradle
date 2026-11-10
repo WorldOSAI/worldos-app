@@ -15,8 +15,8 @@ android {
         applicationId "cc.worldos.app"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 7
-        versionName "1.3"
+        versionCode 10
+        versionName "1.5"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
@@ -39,8 +39,11 @@ android {
             if (releaseSigningConfigured) {
                 signingConfig signingConfigs.release
             }
-            minifyEnabled false
-            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+            // R8: Play flags DEX obfuscation below 25%. The optimize defaults also keep
+            // @JavascriptInterface methods, which the Capacitor bridge depends on.
+            minifyEnabled true
+            shrinkResources true
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
     }
 }
@@ -95,6 +98,10 @@ def verifyReleaseConfiguration = tasks.register('verifyReleaseConfiguration') {
         if (services.project_info?.project_id != 'worldos-3fb07' ||
             !services.client?.any { it.client_info?.android_client_info?.package_name == 'cc.worldos.app' }) {
             throw new GradleException('Release Firebase project/package must be worldos-3fb07 / cc.worldos.app')
+        }
+        def release = android.buildTypes.getByName('release')
+        if (!release.minifyEnabled || !release.shrinkResources) {
+            throw new GradleException('Release must keep R8 on: minifyEnabled and shrinkResources true')
         }
         def capacitorFile = file('src/main/assets/capacitor.config.json')
         if (!capacitorFile.exists() ||
