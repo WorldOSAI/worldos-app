@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Launch skeleton: WorldSims light tokens (background, muted, border). -->
+<resources>
+    <color name="launch_skeleton_background">#F5F5F7</color>
+    <color name="launch_skeleton_card">#FFFFFF</color>
+    <color name="launch_skeleton_block">#E5E5EA</color>
+</resources>
