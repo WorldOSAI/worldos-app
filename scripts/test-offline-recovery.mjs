@@ -3,11 +3,18 @@ import fs from 'node:fs';
 import vm from 'node:vm';
 
 const root = new URL('../', import.meta.url);
-const source = fs.readFileSync(new URL('mobile-dist/recovery.js', root), 'utf8');
+let source;
 for (const file of ['index.html', 'offline.html']) {
   const html = fs.readFileSync(new URL(`mobile-dist/${file}`, root), 'utf8');
-  assert.match(html, /<script src="recovery\.js"><\/script>/);
-  assert.doesNotMatch(html, /getServerUrl|\bfetch\(/);
+  // With server.url configured, Android serves errorPath itself locally but
+  // sends sibling scripts to https://localhost, where no server is listening.
+  assert.doesNotMatch(html, /<script\b[^>]*\bsrc\s*=/i, `${file} must recover without external scripts`);
+  const scripts = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)];
+  assert.equal(scripts.length, 1, `${file} must contain its recovery logic`);
+  const inlineSource = scripts[0][1].trim();
+  assert.doesNotMatch(inlineSource, /getServerUrl\s*\(|\bfetch\s*\(/);
+  if (source === undefined) source = inlineSource;
+  else assert.equal(inlineSource, source, 'both fallback pages must use the same recovery logic');
 }
 
 function fixture(target, throws = false) {
@@ -70,4 +77,4 @@ for (const target of [undefined, 'capacitor://localhost', 'javascript:alert(1)',
   const h = fixture(undefined, true); h.click();
   assert.equal(h.button.disabled, false); assert.equal(h.timers.size, 0);
 }
-console.log('Offline recovery: remote URL, local-origin regression, native dev URL, no preflight, timeout, VPN/online recovery and teardown passed');
+console.log('Offline recovery: self-contained fallback pages, remote URL, local-origin regression, native dev URL, no preflight, timeout, VPN/online recovery and teardown passed');

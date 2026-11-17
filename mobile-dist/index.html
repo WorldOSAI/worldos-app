@@ -18,6 +18,60 @@
       <p>The app could not reach the WorldOS service.</p>
       <p><button id="retry" type="button">Try again</button></p>
     </main>
-    <script src="recovery.js"></script>
+    <!-- Keep this recovery script identical to offline.html and independent
+         of external assets, including when the service cannot be reached. -->
+    <script>
+(() => {
+  const retry = document.getElementById("retry");
+  const label = retry.textContent;
+  let pending = false;
+  let deadline;
+
+  function reset() {
+    clearTimeout(deadline);
+    pending = false;
+    retry.disabled = false;
+    retry.textContent = label;
+  }
+
+  function retryTarget() {
+    // The native asset origin is not the configured remote service. iOS
+    // injects its actual target; Android and older shells use production.
+    let url;
+    try {
+      url = new URL(window.WorldOSAppServerURL || "https://worldos.cc");
+      if (!["https:", "http:"].includes(url.protocol) || url.username || url.password) throw new Error("invalid service URL");
+    } catch (_) {
+      url = new URL("https://worldos.cc");
+    }
+    url.searchParams.set("native-retry", Date.now().toString());
+    return url.toString();
+  }
+
+  function reconnect() {
+    if (pending) return;
+    pending = true;
+    retry.disabled = true;
+    retry.textContent = "Connecting…";
+    // Navigate directly: a preflight fetch from the local asset origin can fail
+    // independently (CORS/custom schemes), or hang and leave Retry disabled.
+    // If navigation stalls, let the person try again without killing the app.
+    deadline = setTimeout(reset, 10000);
+    try {
+      location.replace(retryTarget());
+    } catch (_) {
+      reset();
+    }
+  }
+
+  retry.addEventListener("click", reconnect);
+  window.addEventListener("online", () => { reset(); reconnect(); });
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible") { reset(); reconnect(); }
+  });
+  window.addEventListener("pagehide", () => clearTimeout(deadline));
+  window.addEventListener("pageshow", reset);
+})();
+    </script>
   </body>
 </html>

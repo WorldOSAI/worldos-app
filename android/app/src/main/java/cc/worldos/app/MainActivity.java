@@ -28,6 +28,7 @@ public class MainActivity extends BridgeActivity {
     private final Runnable launchSkeletonTimeout = () -> hideLaunchSkeleton(LAUNCH_SKELETON_FADE_MS);
     private View launchSkeleton;
     private ObjectAnimator launchSkeletonPulse;
+    private StartupNavigationClient startupNavigationClient;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -37,6 +38,9 @@ public class MainActivity extends BridgeActivity {
         boolean coldLaunch = savedInstanceState == null;
         if (coldLaunch) disableLaunchSplashHold();
         super.onCreate(savedInstanceState);
+        if (getBridge() == null) return;
+        startupNavigationClient = new StartupNavigationClient(getBridge());
+        getBridge().setWebViewClient(startupNavigationClient);
 
         // Android 15+ enforces edge-to-edge for apps targeting API 35 or later.
         // Apply the insets to the WebView's container, not the WebView: the
@@ -72,6 +76,7 @@ public class MainActivity extends BridgeActivity {
 
     @Override
     public void onDestroy() {
+        if (startupNavigationClient != null) startupNavigationClient.destroy();
         mainHandler.removeCallbacks(launchSkeletonTimeout);
         if (launchSkeletonPulse != null) launchSkeletonPulse.cancel();
         super.onDestroy();
