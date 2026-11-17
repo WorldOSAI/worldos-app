@@ -16,6 +16,7 @@
 		504EC3121FED79650016851F /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 504EC3101FED79650016851F /* LaunchScreen.storyboard */; };
 		50B271D11FEDC1A000F3C39B /* public in Resources */ = {isa = PBXBuildFile; fileRef = 50B271D01FEDC1A000F3C39B /* public */; };
 		9582B6832FE993A70072D4E8 /* SceneDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9582B6822FE993A50072D4E8 /* SceneDelegate.swift */; };
+		A7C1E0012B5F0001AD000003 /* UnityAdapterTarget in Frameworks */ = {isa = PBXBuildFile; productRef = A7C1E0012B5F0001AD000002 /* UnityAdapterTarget */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -38,6 +39,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				4D22ABE92AF431CB00220026 /* CapApp-SPM in Frameworks */,
+				A7C1E0012B5F0001AD000003 /* UnityAdapterTarget in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -95,6 +97,7 @@
 			name = App;
 			packageProductDependencies = (
 				4D22ABE82AF431CB00220026 /* CapApp-SPM */,
+				A7C1E0012B5F0001AD000002 /* UnityAdapterTarget */,
 			);
 			productName = App;
 			productReference = 504EC3041FED79650016851F /* App.app */;
@@ -127,6 +130,7 @@
 			mainGroup = 504EC2FB1FED79650016851F;
 			packageReferences = (
 				D4C12C0A2AAA248700AAC8A2 /* XCLocalSwiftPackageReference "CapApp-SPM" */,
+				A7C1E0012B5F0001AD000001 /* XCRemoteSwiftPackageReference "googleads-mobile-ios-mediation-unity" */,
 			);
 			productRefGroup = 504EC3051FED79650016851F /* Products */;
 			projectDirPath = "";
@@ -372,11 +376,27 @@
 		};
 /* End XCLocalSwiftPackageReference section */
 
+/* Begin XCRemoteSwiftPackageReference section */
+		A7C1E0012B5F0001AD000001 /* XCRemoteSwiftPackageReference "googleads-mobile-ios-mediation-unity" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/googleads/googleads-mobile-ios-mediation-unity.git";
+			requirement = {
+				kind = revision;
+				revision = 188967a5c062987496cd276b83dc25e84f87d9a6;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
 /* Begin XCSwiftPackageProductDependency section */
 		4D22ABE82AF431CB00220026 /* CapApp-SPM */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = D4C12C0A2AAA248700AAC8A2 /* XCLocalSwiftPackageReference "CapApp-SPM" */;
 			productName = "CapApp-SPM";
+		};
+		A7C1E0012B5F0001AD000002 /* UnityAdapterTarget */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A7C1E0012B5F0001AD000001 /* XCRemoteSwiftPackageReference "googleads-mobile-ios-mediation-unity" */;
+			productName = UnityAdapterTarget;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};
