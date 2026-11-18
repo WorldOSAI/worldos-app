@@ -13,7 +13,8 @@ class TrackingAuthorizationPlugin: CAPPlugin, CAPBridgedPlugin {
     let jsName = "TrackingAuthorization"
     let pluginMethods: [CAPPluginMethod] = [
         CAPPluginMethod(name: "getStatus", returnType: CAPPluginReturnPromise),
-        CAPPluginMethod(name: "requestAuthorization", returnType: CAPPluginReturnPromise)
+        CAPPluginMethod(name: "requestAuthorization", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "holdStartup", returnType: CAPPluginReturnPromise)
     ]
 
     private var activationObserver: NSObjectProtocol?
@@ -22,6 +23,10 @@ class TrackingAuthorizationPlugin: CAPPlugin, CAPBridgedPlugin {
     private var pendingCalls: [CAPPluginCall] = []
     private var startupPrompt: DispatchWorkItem?
     private var startupAttempts = 0
+    /// The Web page is showing its own explainer and will request the system sheet itself.
+    private var webHolding = false
+    /// How long the native fallback waits for the Web page to take over (explainer + request).
+    private let startupFallbackDelay: TimeInterval = 15
     private let trackingLog = Logger(subsystem: "cc.worldos.app", category: "TrackingAuthorization")
 
     override func load() {
@@ -46,7 +51,8 @@ class TrackingAuthorizationPlugin: CAPPlugin, CAPBridgedPlugin {
         case .notDetermined: status = "notDetermined"
         @unknown default: status = "unknown"
         }
-        return ["status": status, "canTrack": status == "authorized"]
+        // webPrimer: this build lets the Web page show the explainer (holdStartup) before requesting.
+        return ["status": status, "canTrack": status == "authorized", "webPrimer": true]
     }
 
     func onWebViewPresented() {
@@ -63,8 +69,27 @@ class TrackingAuthorizationPlugin: CAPPlugin, CAPBridgedPlugin {
         scheduleStartupPrompt()
     }
 
+    @objc func holdStartup(_ call: CAPPluginCall) {
+        DispatchQueue.main.async {
+            self.webHolding = true
+            self.startupPrompt?.cancel()
+            self.startupPrompt = nil
+            call.resolve()
+            // never strand ATT behind a Web page that stopped responding: take it back after a while
+            DispatchQueue.main.asyncAfter(deadline: .now() + 90) { [weak self] in
+                guard let self, !self.requesting else { return }
+                self.webHolding = false
+                self.scheduleStartupPrompt()
+            }
+        }
+    }
+
+    /// Fallback only: the Web page normally explains and requests ATT itself (so the copy and timing
+    /// change without an App release). If it has not taken over after `startupFallbackDelay`
+    /// (page failed to load, old/broken Web code), the App explains and requests it so the prompt
+    /// still appears on first launch — App Review needs to see it.
     private func scheduleStartupPrompt() {
-        guard startupPrompt == nil, startupAttempts < 3, !requesting,
+        guard startupPrompt == nil, startupAttempts < 3, !requesting, !webHolding,
               webViewPresented, UIApplication.shared.applicationState == .active,
               ATTrackingManager.trackingAuthorizationStatus == .notDetermined else { return }
         let work = DispatchWorkItem { [weak self] in
@@ -77,13 +102,13 @@ class TrackingAuthorizationPlugin: CAPPlugin, CAPBridgedPlugin {
                 self.scheduleStartupPrompt()
                 return
             }
-            guard !self.requesting,
+            guard !self.requesting, !self.webHolding,
                   ATTrackingManager.trackingAuthorizationStatus == .notDetermined else { return }
             self.startupAttempts += 1
             self.requestIfNeeded(source: "startup")
         }
         startupPrompt = work
-        DispatchQueue.main.asyncAfter(deadline: .now() + 2, execute: work)
+        DispatchQueue.main.asyncAfter(deadline: .now() + startupFallbackDelay, execute: work)
     }
 
     @objc func getStatus(_ call: CAPPluginCall) {
@@ -118,6 +143,22 @@ class TrackingAuthorizationPlugin: CAPPlugin, CAPBridgedPlugin {
         startupPrompt = nil
         requesting = true
         trackingLog.info("ATT requesting authorization from \(source, privacy: .public)")
+        // The Web page has already explained itself; only the native fallback explains here.
+        if source == "startup" { presentPrimer { [weak self] in self?.requestSystemPrompt() } }
+        else { requestSystemPrompt() }
+    }
+
+    private func presentPrimer(then proceed: @escaping () -> Void) {
+        var presenter = bridge?.viewController
+        while let next = presenter?.presentedViewController { presenter = next }
+        guard let presenter, !(presenter is UIAlertController) else { proceed(); return }
+        let copy = TrackingPrimerCopy.current
+        let alert = UIAlertController(title: copy.title, message: copy.message, preferredStyle: .alert)
+        alert.addAction(UIAlertAction(title: copy.button, style: .default) { _ in proceed() })
+        presenter.present(alert, animated: true)
+    }
+
+    private func requestSystemPrompt() {
         ATTrackingManager.requestTrackingAuthorization { [weak self] _ in
             DispatchQueue.main.async {
                 guard let self else { return }
@@ -518,4 +559,41 @@ class DeviceIdentityPlugin: CAPPlugin, CAPBridgedPlugin {
         if status == errSecDuplicateItem { return read() }
         return status == errSecSuccess ? id : nil
     }
+}
+
+
+/// Copy for the explainer shown right before Apple's ATT sheet. One button only: it must lead to the
+/// system sheet, never be a way around it. Falls back to English for other languages.
+struct TrackingPrimerCopy {
+    let title: String
+    let message: String
+    let button: String
+
+    static var current: TrackingPrimerCopy {
+        let language = Locale.preferredLanguages.first.map { String($0.prefix(2)) } ?? "en"
+        return table[language] ?? table["en"]!
+    }
+
+    private static let table: [String: TrackingPrimerCopy] = [
+        "en": TrackingPrimerCopy(
+            title: "Help keep WorldOS free",
+            message: "Next, iOS will ask whether WorldOS may track your activity across other companies’ apps and websites. Allowing it lets us show more relevant ads, which pay for the free features. You can change this any time in Settings.",
+            button: "Continue"),
+        "zh": TrackingPrimerCopy(
+            title: "帮助 WorldOS 保持免费",
+            message: "接下来 iOS 会询问是否允许 WorldOS 跨其他公司的 App 和网站追踪你的活动。允许后，我们能展示更相关的广告，这些收入用于支持免费功能。你可以随时在“设置”中更改。",
+            button: "继续"),
+        "ja": TrackingPrimerCopy(
+            title: "WorldOS を無料で続けるために",
+            message: "この後、iOS が他社のアプリや Web サイトをまたいでアクティビティを追跡することを WorldOS に許可するかどうかを尋ねます。許可すると、より関連性の高い広告を表示でき、その収益が無料機能の運営に使われます。設定からいつでも変更できます。",
+            button: "続ける"),
+        "ko": TrackingPrimerCopy(
+            title: "WorldOS를 무료로 유지하는 데 도움을 주세요",
+            message: "다음으로 iOS가 WorldOS가 다른 회사의 앱과 웹사이트에서 사용자 활동을 추적해도 되는지 묻습니다. 허용하면 더 관련성 높은 광고를 보여 드릴 수 있고, 그 수익이 무료 기능을 운영하는 데 쓰입니다. 설정에서 언제든지 변경할 수 있습니다.",
+            button: "계속"),
+        "es": TrackingPrimerCopy(
+            title: "Ayuda a mantener WorldOS gratis",
+            message: "A continuación, iOS te preguntará si WorldOS puede hacer seguimiento de tu actividad en apps y sitios web de otras empresas. Permitirlo nos deja mostrar anuncios más relevantes, que financian las funciones gratuitas. Puedes cambiarlo en cualquier momento en Ajustes.",
+            button: "Continuar"),
+    ]
 }
