@@ -13,7 +13,8 @@ class TrackingAuthorizationPlugin: CAPPlugin, CAPBridgedPlugin {
     let jsName = "TrackingAuthorization"
     let pluginMethods: [CAPPluginMethod] = [
         CAPPluginMethod(name: "getStatus", returnType: CAPPluginReturnPromise),
-        CAPPluginMethod(name: "requestAuthorization", returnType: CAPPluginReturnPromise)
+        CAPPluginMethod(name: "requestAuthorization", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "holdStartup", returnType: CAPPluginReturnPromise)
     ]
 
     private var activationObserver: NSObjectProtocol?
@@ -22,6 +23,10 @@ class TrackingAuthorizationPlugin: CAPPlugin, CAPBridgedPlugin {
     private var pendingCalls: [CAPPluginCall] = []
     private var startupPrompt: DispatchWorkItem?
     private var startupAttempts = 0
+    /// The Web page is showing its own explainer and will request the system sheet itself.
+    private var webHolding = false
+    /// How long the native fallback waits for the Web page to take over (explainer + request).
+    private let startupFallbackDelay: TimeInterval = 15
     private let trackingLog = Logger(subsystem: "cc.worldos.app", category: "TrackingAuthorization")
 
     override func load() {
@@ -46,7 +51,8 @@ class TrackingAuthorizationPlugin: CAPPlugin, CAPBridgedPlugin {
         case .notDetermined: status = "notDetermined"
         @unknown default: status = "unknown"
         }
-        return ["status": status, "canTrack": status == "authorized"]
+        // webPrimer: this build lets the Web page show the explainer (holdStartup) before requesting.
+        return ["status": status, "canTrack": status == "authorized", "webPrimer": true]
     }
 
     func onWebViewPresented() {
@@ -63,8 +69,27 @@ class TrackingAuthorizationPlugin: CAPPlugin, CAPBridgedPlugin {
         scheduleStartupPrompt()
     }
 
+    @objc func holdStartup(_ call: CAPPluginCall) {
+        DispatchQueue.main.async {
+            self.webHolding = true
+            self.startupPrompt?.cancel()
+            self.startupPrompt = nil
+            call.resolve()
+            // never strand ATT behind a Web page that stopped responding: take it back after a while
+            DispatchQueue.main.asyncAfter(deadline: .now() + 90) { [weak self] in
+                guard let self, !self.requesting else { return }
+                self.webHolding = false
+                self.scheduleStartupPrompt()
+            }
+        }
+    }
+
+    /// Fallback only: the Web page normally explains and requests ATT itself (so the copy and timing
+    /// change without an App release). If it has not taken over after `startupFallbackDelay`
+    /// (page failed to load, old/broken Web code), the App explains and requests it so the prompt
+    /// still appears on first launch — App Review needs to see it.
     private func scheduleStartupPrompt() {
-        guard startupPrompt == nil, startupAttempts < 3, !requesting,
+        guard startupPrompt == nil, startupAttempts < 3, !requesting, !webHolding,
               webViewPresented, UIApplication.shared.applicationState == .active,
               ATTrackingManager.trackingAuthorizationStatus == .notDetermined else { return }
         let work = DispatchWorkItem { [weak self] in
@@ -77,13 +102,13 @@ class TrackingAuthorizationPlugin: CAPPlugin, CAPBridgedPlugin {
                 self.scheduleStartupPrompt()
                 return
             }
-            guard !self.requesting,
+            guard !self.requesting, !self.webHolding,
                   ATTrackingManager.trackingAuthorizationStatus == .notDetermined else { return }
             self.startupAttempts += 1
             self.requestIfNeeded(source: "startup")
         }
         startupPrompt = work
-        DispatchQueue.main.asyncAfter(deadline: .now() + 2, execute: work)
+        DispatchQueue.main.asyncAfter(deadline: .now() + startupFallbackDelay, execute: work)
     }
 
     @objc func getStatus(_ call: CAPPluginCall) {
@@ -118,9 +143,9 @@ class TrackingAuthorizationPlugin: CAPPlugin, CAPBridgedPlugin {
         startupPrompt = nil
         requesting = true
         trackingLog.info("ATT requesting authorization from \(source, privacy: .public)")
-        // The system sheet appears only once per install, so explain it first (higher opt-in).
-        // Still on first launch, so App Review sees the ATT prompt.
-        presentPrimer { [weak self] in self?.requestSystemPrompt() }
+        // The Web page has already explained itself; only the native fallback explains here.
+        if source == "startup" { presentPrimer { [weak self] in self?.requestSystemPrompt() } }
+        else { requestSystemPrompt() }
     }
 
     private func presentPrimer(then proceed: @escaping () -> Void) {
