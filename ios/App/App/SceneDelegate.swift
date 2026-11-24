@@ -6,6 +6,32 @@ import Security
 import OSLog
 import Photos
 import UniformTypeIdentifiers
+import AdServices
+
+/// Only exposes Apple's short-lived token. WorldOS resolves it on its own server;
+/// this plugin never sends business events or touches IDFA/ATT/device identity.
+@objc(AppleAdsAttributionPlugin)
+class AppleAdsAttributionPlugin: CAPPlugin, CAPBridgedPlugin {
+    let identifier = "AppleAdsAttributionPlugin"
+    let jsName = "AppleAdsAttribution"
+    let pluginMethods: [CAPPluginMethod] = [
+        CAPPluginMethod(name: "getToken", returnType: CAPPluginReturnPromise)
+    ]
+
+    @objc func getToken(_ call: CAPPluginCall) {
+        DispatchQueue.global(qos: .utility).async {
+            do {
+                let token = try AAAttribution.attributionToken()
+                DispatchQueue.main.async { call.resolve(["token": token]) }
+            } catch {
+                // Never log token/provider data or leak it in an error message.
+                DispatchQueue.main.async {
+                    call.reject("Apple attribution is unavailable", "APPLE_ATTRIBUTION_UNAVAILABLE")
+                }
+            }
+        }
+    }
+}
 
 @objc(TrackingAuthorizationPlugin)
 class TrackingAuthorizationPlugin: CAPPlugin, CAPBridgedPlugin {
@@ -438,6 +464,7 @@ class WorldOSBridgeViewController: CAPBridgeViewController {
         bridge?.registerPluginInstance(DeviceIdentityPlugin())
         bridge?.registerPluginInstance(trackingAuthorization)
         bridge?.registerPluginInstance(MediaSavePlugin())
+        bridge?.registerPluginInstance(AppleAdsAttributionPlugin())
         webView?.allowsBackForwardNavigationGestures = false
         if let webView, let handler = webView.navigationDelegate as? (NSObject & WKNavigationDelegate) {
             let filter = CancelledNavigationFilter(forwardingTo: handler)
