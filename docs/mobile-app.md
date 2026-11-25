@@ -94,6 +94,12 @@ TikTok for Business in AppsFlyer Integrated Partners. Existing WorldOS conversio
 are mirrored to standard AppsFlyer event names while the browser continues to use the
 TikTok Pixel and Events API. Purchase server events remain the source of truth.
 
+`Info.plist` sets `NSAdvertisingAttributionReportEndpoint` to
+`https://appsflyer-skadnetwork.com/`, so Apple copies winning SKAdNetwork postbacks to
+AppsFlyer. This is what measures our own campaigns for users who have not authorized
+ATT; `SKAdNetworkItems` is unrelated (it lets AdMob's networks attribute ads shown in
+the App). It takes effect only in a build that ships the key.
+
 Complete SKAdNetwork IDs, ATT consent copy, TikTok Advanced Matching, and deferred
 deep links in the AppsFlyer/TikTok dashboards before running paid acquisition.
 
