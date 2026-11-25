@@ -10,7 +10,7 @@
     "mobile:ios": "cap open ios",
     "mobile:splash": "node scripts/generate-mobile-splash.mjs",
     "test:offline-recovery": "node scripts/test-offline-recovery.mjs",
-    "postinstall": "node scripts/patch-admob-revenue.mjs"
+    "postinstall": "node scripts/patch-admob-revenue.mjs && node scripts/patch-agp9-plugins.mjs"
   },
   "dependencies": {
     "@capacitor-community/admob": "8.1.0",
