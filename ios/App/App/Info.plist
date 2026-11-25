@@ -40,6 +40,9 @@
 	<string>WorldOS saves the videos and images you choose to download, such as a map timelapse, to your photo library.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>WorldOS may use your approximate location to provide more relevant advertising.</string>
+	<key>NSAdvertisingAttributionReportEndpoint</key>
+	<!-- Apple sends a copy of each winning SKAdNetwork postback to AppsFlyer. -->
+	<string>https://appsflyer-skadnetwork.com/</string>
 	<key>SKAdNetworkItems</key>
 	<array>
 		<dict>
